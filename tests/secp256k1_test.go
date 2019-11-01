@@ -5,8 +5,8 @@ import (
 	"io"
 	"testing"
 
+	"github.com/olegabu/go-secp256k1-zkp"
 	"github.com/stretchr/testify/assert"
-	"labdlt.ru/mw/go-secp256k1-zkp"
 )
 
 func testingRand32() [32]byte {

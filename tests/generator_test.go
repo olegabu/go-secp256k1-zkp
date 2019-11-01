@@ -3,10 +3,10 @@ package secp256k1_test
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/olegabu/go-secp256k1-zkp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"labdlt.ru/mw/go-secp256k1-zkp"
 )
 
 func TestGeneratorAPI(t *testing.T) {

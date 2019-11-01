@@ -2,10 +2,10 @@ package secp256k1_test
 
 import (
 	"encoding/hex"
+	"github.com/olegabu/go-secp256k1-zkp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"labdlt.ru/mw/go-secp256k1-zkp"
 )
 
 func TestSignatureParseDerFixtures(t *testing.T) {

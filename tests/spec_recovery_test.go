@@ -1,10 +1,10 @@
 package secp256k1_test
 
 import (
+	"github.com/olegabu/go-secp256k1-zkp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"labdlt.ru/mw/go-secp256k1-zkp"
 )
 
 func TestSpecRecoverableSignature(t *testing.T) {

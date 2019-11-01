@@ -3,11 +3,11 @@ package secp256k1_test
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/olegabu/go-secp256k1-zkp"
 	"testing"
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
-	secp256k1 "labdlt.ru/mw/go-secp256k1-zkp"
 )
 
 func TestCommitmentAPI(t *testing.T) {

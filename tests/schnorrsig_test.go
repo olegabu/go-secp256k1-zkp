@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/olegabu/go-secp256k1-zkp"
+	zkp "github.com/olegabu/go-secp256k1-zkp"
 	"github.com/stretchr/testify/assert"
-	"labdlt.ru/mw/go-secp256k1-zkp"
-	zkp "labdlt.ru/mw/go-secp256k1-zkp"
 )
 
 var ctx *zkp.Context

@@ -1,4 +1,4 @@
-module labdlt.ru/mw/go-secp256k1-zkp
+module github.com/olegabu/go-secp256k1-zkp
 
 go 1.12
 

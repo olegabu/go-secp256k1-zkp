@@ -16,9 +16,9 @@ import (
 	"strings"
 	"testing"
 
+	secp256k1 "github.com/olegabu/go-secp256k1-zkp"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/blake2b"
-	secp256k1 "labdlt.ru/mw/go-secp256k1-zkp"
 )
 
 var txPrinted bool

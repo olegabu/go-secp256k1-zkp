@@ -2,12 +2,12 @@ package secp256k1_test
 
 import (
 	"fmt"
+	"github.com/olegabu/go-secp256k1-zkp"
 	"io/ioutil"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	secp256k1 "labdlt.ru/mw/go-secp256k1-zkp"
 )
 
 const (

@@ -3,12 +3,11 @@ package secp256k1_test
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/olegabu/go-secp256k1-zkp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
-
-	"labdlt.ru/mw/go-secp256k1-zkp"
 )
 
 type PrivkeyTweakAddTestCase struct {
