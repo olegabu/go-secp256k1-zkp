@@ -1,0 +1,13 @@
+{
+  "body": {
+    "kernels": [
+      {
+        "features": "Plain",
+        "fee": "7000000",
+        "lock_height": "0",
+        "excess": "093aa589112abe9bc5df84b2325162f711b9d909417701e302304ebdc9ae7d358d",
+        "excess_sig": "d81691e6153061250a6c8aef2411e5c579b8e87ca891962ebc0dc0ffd1d762e63a912ceaf0664542460720c42300acae3d16c3d4c42aa554a8a1b40c310f455e"
+      }
+    ]
+  }
+}

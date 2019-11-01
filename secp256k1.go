@@ -1,35 +1,32 @@
 package secp256k1
 
-// #include <stdlib.h>
-// #include "secp256k1-zkp/include/secp256k1.h"
-// #include "secp256k1-zkp/include/secp256k1_ecdh.h"
-// #include "secp256k1-zkp/include/secp256k1_recovery.h"
-// #include "secp256k1-zkp/include/secp256k1_rangeproof.h"
 /*
-// https://groups.google.com/forum/#!topic/golang-nuts/pQueMFdY0mk
-// for secp256k1_pubkey**
-static secp256k1_pubkey** makePubkeyArray(int size) {
-        return calloc(sizeof(secp256k1_pubkey*), size);
-}
-static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) {
-        a[n] = pubkey;
-}
-static void freePubkeyArray(secp256k1_pubkey **a) {
-        free(a);
-}
+#include <stdlib.h>
+#include <stdint.h>
+#include "include/secp256k1.h"
+#include "include/secp256k1_ecdh.h"
+#include "include/secp256k1_recovery.h"
+static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
+static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
+static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
 */
-// #cgo LDFLAGS: ${SRCDIR}/secp256k1-zkp/.libs/libsecp256k1.a -lgmp
+//#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
+//#cgo LDFLAGS: ${SRCDIR}/secp256k1-zkp/.libs/libsecp256k1.a -lgmp -v
 import "C"
 
 import (
-	"github.com/pkg/errors"
+	"crypto/rand"
 	"unsafe"
+
+	"github.com/pkg/errors"
 )
 
 const (
 	/** Flags to pass to secp256k1_context_create. */
-	ContextVerify = uint(C.SECP256K1_CONTEXT_VERIFY)
+	ContextNone   = uint(C.SECP256K1_CONTEXT_NONE)
 	ContextSign   = uint(C.SECP256K1_CONTEXT_SIGN)
+	ContextVerify = uint(C.SECP256K1_CONTEXT_VERIFY)
+	ContextBoth   = uint(C.SECP256K1_CONTEXT_SIGN | C.SECP256K1_CONTEXT_VERIFY)
 
 	// Flags for EcPubkeySerialize
 	EcCompressed   = uint(C.SECP256K1_EC_COMPRESSED)
@@ -48,11 +45,10 @@ const (
 	ErrorPrivateKeyInvalid             string = "Invalid private key"
 	ErrorPublicKeyNull                 string = "Public key cannot be null"
 	ErrorEcdsaSignatureNull            string = "Signature cannot be null"
-	ErrorEcdsaRecoverableSignatureNull string = "Recoverable signature" +
-		" cannot be null"
-	ErrorEcdh             string = "Unable to do ECDH"
-	ErrorPublicKeyCreate  string = "Unable to produce public key"
-	ErrorPublicKeyCombine string = "Unable to combine public keys"
+	ErrorEcdsaRecoverableSignatureNull string = "Recoverable signature cannot be null"
+	ErrorEcdh                          string = "Unable to do ECDH"
+	ErrorPublicKeyCreate               string = "Unable to produce public key"
+	ErrorPublicKeyCombine              string = "Unable to combine public keys"
 
 	ErrorTweakSize      string = "Tweak must be exactly 32 bytes"
 	ErrorMsg32Size      string = "Message hash must be exactly 32 bytes"
@@ -525,8 +521,27 @@ func EcdsaRecover(ctx *Context, sig *EcdsaRecoverableSignature, msg32 []byte) (i
 	return result, recovered, nil
 }
 
+/** Generate a pseudorandom 32-byte array with long sequences of zero and one bits. */
+func Rand256(b [32]byte) (len int) {
+	len, err := rand.Read(b[:])
+	if err != nil {
+		len = 0
+	}
+	return
+}
+
 func cBuf(goSlice []byte) *C.uchar {
+	if goSlice == nil {
+		return nil
+	}
 	return (*C.uchar)(unsafe.Pointer(&goSlice[0]))
+}
+
+func u64Arr(a []uint64) *C.uint64_t {
+	if a == nil {
+		return nil
+	}
+	return (*C.uint64_t)(unsafe.Pointer(&a[0]))
 }
 
 func goBytes(cSlice []C.uchar, size C.int) []byte {
