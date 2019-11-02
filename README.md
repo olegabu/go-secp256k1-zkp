@@ -5,11 +5,13 @@ C library which is an experimental fork of libsecp256k1 with support for Pederse
 
 ## Building
 
-Clone the package from github and run the following from the source directory.
+Note go modules are not yet supported.
 
 ```bash
-git submodule update --init
 make
+
+unset GO111MODULE
+go install
 ```
 
 ## Testing
