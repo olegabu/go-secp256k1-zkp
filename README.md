@@ -3,23 +3,29 @@
 This package provides bindings (using cgo) to [secp256k1-zkp](https://github.com/mimblewimble/secp256k1-zkp) 
 C library which is an experimental fork of libsecp256k1 with support for Pedersen commitments and range proofs.
 
+## TODO
+
+- folder secp256k1-zkp is a copy from its repo not a git submodule to avoid errors in using with module based packages
+- go modules are not yet supported, use `unset GO111MODULE` before building
+- some packages using this library fail to build with a link error, use `CFLAGS="-fPIC" make`
+
 ## Building
 
-Note go modules are not yet supported.
-
 ```bash
-make
+make # builds the c library into secp256k1-zkp/.libs folder
 
-unset GO111MODULE
+unset GO111MODULE # in case it's set to the modern default in the profile
 go install
 ```
 
-## Testing
+## Testing GO code
 
 ```bash
 cd tests
 go test
 ```
+
+## Testing C library `secp256k1-zkp`
 
 Tests can be run by calling `make test`
 Coverage can be build by calling `make coverage`
