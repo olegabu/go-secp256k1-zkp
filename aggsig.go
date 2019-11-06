@@ -8,11 +8,14 @@ package secp256k1
 //#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 //#include "include/secp256k1_aggsig.h"
 import "C"
+import "github.com/pkg/errors"
 
 const (
 	ErrorAggsigSize  string = "Signature data expected length is 64 bytes"
 	ErrorAggsigParse string = "Unable to parse the data as a signature"
 	ErrorAggsigCount string = "Number of elements differ in input arrays"
+	ErrorAggsigSign  string = "Unable to generate a signature"
+	ErrorAggsigArgs  string = "Invalid arguments"
 )
 
 /** Opaque data structure that holds context for the aggregated signature state machine
@@ -141,6 +144,47 @@ func newAggsig(ctx *Context) *AggsigPartialSignature {
 //     const secp256k1_pubkey* pubkey_for_e,
 //     const unsigned char* seed)
 // SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(10) SECP256K1_WARN_UNUSED_RESULT;
+func AggsigSignSingle(
+	context *Context,
+	msg32 []byte,
+	seckey32 []byte,
+	secnonce32 []byte,
+	extra32 []byte,
+	pubnonce_for_e *PublicKey,
+	pubnonce_total *PublicKey,
+	pubkey_for_e *PublicKey,
+	seed32 []byte,
+) (
+	sig64 []byte,
+	failure error,
+) {
+	var pubnonce_for_e_pk, pubkey_for_e_pk, pubnonce_total_pk *C.secp256k1_pubkey
+	if pubnonce_for_e != nil {
+		pubnonce_for_e_pk = pubnonce_for_e.pk
+	}
+	if pubnonce_total != nil {
+		pubnonce_total_pk = pubnonce_total.pk
+	}
+	if pubkey_for_e != nil {
+		pubkey_for_e_pk = pubkey_for_e.pk
+	}
+	var sig [64]byte
+	if 1 != int(
+		C.secp256k1_aggsig_sign_single(
+			context.ctx,
+			cBuf(sig[:]),
+			cBuf(msg32),
+			cBuf(seckey32),
+			cBuf(secnonce32),
+			cBuf(extra32),
+			pubnonce_for_e_pk,
+			pubnonce_total_pk,
+			pubkey_for_e_pk,
+			cBuf(seed32))) {
+		return nil, errors.New(ErrorAggsigSign)
+	}
+	return sig[:], nil
+}
 
 /** Generate a single signature part in an aggregated signature
  *
