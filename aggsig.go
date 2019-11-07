@@ -7,6 +7,13 @@ package secp256k1
 
 //#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 //#include "include/secp256k1_aggsig.h"
+/*
+#include <stdlib.h>
+static unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
+static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
+static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
+static void freeBytesArray(unsigned char** a) { if (a) free(a); }
+*/
 import "C"
 import "github.com/pkg/errors"
 
@@ -238,6 +245,37 @@ func AggsigSignSingle(
 //     size_t num_sigs,
 //     const secp256k1_pubkey* pubnonce_total
 // ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_WARN_UNUSED_RESULT;
+func AggsigAddSignaturesSingle(
+	context *Context,
+	sigs [][]byte,
+	pubnoncetotal *PublicKey,
+) (
+	sig64 []byte,
+	failure error,
+) {
+	sl := len(sigs)
+	ss := C.makeBytesArray(C.int(sl))
+	for i := 0; i < sl; i++ {
+		C.setBytesArray(bs, cBuf(sigs[i][:]), C.int(i))
+	}
+	defer C.freeBytesArray(ss)
+
+	if pubnoncetotal != nil {
+		pubnoncetotalpk = pubnoncetotal.pk
+	}
+
+	output := make([]C.uchar, 64)
+	if 1 != int(
+		C.secp256k1_aggsig_add_signatures_single(
+			context.ctx,
+			&output[0],
+			cBuf(ss),
+			C.size_t(sl),
+			pubnoncetotalpk)) {
+		return nil, errors.New(ErrorAggsigSign)
+	}
+	return goBytes(output, 64), nil
+}
 
 /** Verify a single-signer signature, without a stored context
  *
