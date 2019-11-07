@@ -256,10 +256,11 @@ func AggsigAddSignaturesSingle(
 	sl := len(sigs)
 	ss := C.makeBytesArray(C.int(sl))
 	for i := 0; i < sl; i++ {
-		C.setBytesArray(bs, cBuf(sigs[i][:]), C.int(i))
+		C.setBytesArray(ss, cBuf(sigs[i][:]), C.int(i))
 	}
 	defer C.freeBytesArray(ss)
 
+	var pubnoncetotalpk *C.secp256k1_pubkey
 	if pubnoncetotal != nil {
 		pubnoncetotalpk = pubnoncetotal.pk
 	}
@@ -269,7 +270,7 @@ func AggsigAddSignaturesSingle(
 		C.secp256k1_aggsig_add_signatures_single(
 			context.ctx,
 			&output[0],
-			cBuf(ss),
+			ss,
 			C.size_t(sl),
 			pubnoncetotalpk)) {
 		return nil, errors.New(ErrorAggsigSign)
