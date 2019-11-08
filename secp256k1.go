@@ -547,3 +547,17 @@ func u64Arr(a []uint64) *C.uint64_t {
 func goBytes(cSlice []C.uchar, size C.int) []byte {
 	return C.GoBytes(unsafe.Pointer(&cSlice[0]), size)
 }
+
+func Random256() [32]byte {
+	s := make([]byte, 32)
+	l, err := rand.Read(s)
+
+	var r [32]byte
+	copy(r[:], s[:32])
+
+	if l != 32 || err != nil {
+		return r
+	}
+
+	return r
+}
