@@ -96,7 +96,7 @@ func SchnorrsigParse(
  *
  *  Returns: 1 on success, 0 on failure
  *  Args:   ctx:        a secp256k1 context object.
- *  In:     Schnorrsig   a generator object
+ *  In:     Schnorrsig   a Schnorr signature object
  *  Out:    status, data, error: 64-byte byte array
  */
 func SchnorrsigSerialize(
@@ -123,12 +123,34 @@ func SchnorrsigSerialize(
  *	     	  seckey:  32-byte secret key
 // TODO: *         noncefunc:  optional custom nonce generation function, the default one is secp256k1_nonce_function_bipschnorr
 //       *         nonceseed:  optional seed data for the custom nonce generation function
- *
+*
  *  Out:  schnorrsig:  pointer to resulting Schnorr signature
  *      noncenegated:  non-zero if signing algorithm negated the nonce
  *
  *  Returns:       1:  Success
  *                 0:  Failure
+*/
+/* DEFAULT NONCE FUNCTION:
+ * This nonce function is described in BIP-schnorr
+ * (https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki) */
+// FYI: code of the default function
+/* static int secp256k1_nonce_function_bipschnorr(unsigned char* nonce32, const unsigned char* msg32, const unsigned char* key32, const unsigned char* algo16, void* data, unsigned int counter) {
+	secp256k1_sha256 sha;
+	(void)data;
+	(void)counter;
+	VERIFY_CHECK(counter == 0);
+	// Hash x||msg as per the spec
+	secp256k1_sha256_initialize(&sha);
+	secp256k1_sha256_write(&sha, key32, 32);
+	secp256k1_sha256_write(&sha, msg32, 32);
+	// Hash in algorithm, which is not in the spec, but may be critical to
+	// users depending on it to avoid nonce reuse across algorithms.
+	if (algo16 != NULL) {
+		secp256k1_sha256_write(&sha, algo16, 16);
+	}
+	secp256k1_sha256_finalize(&sha, nonce32);
+	return 1;
+}
 */
 func SchnorrsigSign(
 	context *Context,
@@ -175,12 +197,12 @@ func SchnorrsigVerify(
 ) (
 	err error,
 ) {
-	if 1 != int(
-		C.secp256k1_schnorrsig_verify(
-			context.ctx,
-			schnorrsig.c,
-			cBuf(msg),
-			pubkey.pk)) {
+	if 1 != C.secp256k1_schnorrsig_verify(
+		context.ctx,
+		schnorrsig.c,
+		cBuf(msg),
+		pubkey.pk) {
+
 		return errors.New(ErrorSchnorrsigVerify)
 	}
 	return

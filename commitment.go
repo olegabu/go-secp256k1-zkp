@@ -9,7 +9,7 @@ package secp256k1
 /*
 #include <stdlib.h>
 #include "include/secp256k1_commitment.h"
-static unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
+static const unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
 static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
 static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
 static void freeBytesArray(unsigned char** a) { if (a) free(a); }
@@ -25,8 +25,6 @@ import (
 	"unsafe"
 )
 
-type BlindingFactor [32]byte
-
 /** Pointer to opaque data structure that stores a base point
  *
  *  The exact representation of data inside is implementation defined and not
@@ -41,9 +39,12 @@ type Commitment struct {
 }
 
 const (
-	ErrorCommitmentSize  string = "Commitment data expected length is 33 bytes"
-	ErrorCommitmentParse string = "Unable to parse the data as a commitment"
-	ErrorCommitmentCount string = "Number of elements differ in input arrays"
+	ErrorCommitmentSize      string = "Commitment data expected length is 33 bytes"
+	ErrorCommitmentParse     string = "Unable to parse the data as a commitment"
+	ErrorCommitmentSerialize string = "Unable to serialize commitment"
+	ErrorCommitmentCount     string = "Number of elements differ in input arrays"
+	ErrorCommitmentTally     string = "Sums of inputs and outputs are not equal"
+	ErrorCommitmentError     string = "Failed to create a commitment"
 )
 
 func newCommitment(ctx *Context) *Commitment {
@@ -58,27 +59,25 @@ func newCommitment(ctx *Context) *Commitment {
  *  Returns: 1 if input contains a valid commitment.
  *  Args: ctx:     a secp256k1 context object.
  *  In:   data:    pointer to a 33-byte serialized data
- *  Out:  status, Commitment, error
+ *  Out:  nil/Commitment
  */
 func CommitmentParse(
 	context *Context,
-	data []byte,
+	data33 []byte,
 ) (
-	success bool,
-	commitment *Commitment,
-	failure error,
+	*Commitment,
+	error,
 ) {
-	l := len(data)
-	if l != LenCompressed {
-		return false, nil, errors.New(ErrorCommitmentSize)
+	commit := newCommitment(context)
+	if 1 != C.secp256k1_pedersen_commitment_parse(
+		context.ctx,
+		commit.com,
+		cBuf(data33[:])) {
+
+		return nil, errors.New(ErrorCommitmentParse)
 	}
-	commitment = newCommitment(context)
-	success = 1 == int(
-		C.secp256k1_pedersen_commitment_parse(
-			context.ctx,
-			commitment.com,
-			cBuf(data)))
-	return
+
+	return commit, nil
 }
 
 /** Serialize Commitment into sequence of bytes.
@@ -86,52 +85,43 @@ func CommitmentParse(
  *  Returns: 1 always.
  *  Args:   ctx:        a secp256k1 context object.
  *  In:     Commitment   a commitment object
- *  Out:    status, data, error:     a pointer to a 33-byte byte array
+ *  Out:    serialized data: a pointer to a 33-byte byte array
  */
 func CommitmentSerialize(
 	context *Context,
-	commitment *Commitment,
+	commit *Commitment,
 ) (
-	success bool,
-	data [33]byte,
-	failure error,
+	data33 []byte,
+	err error,
 ) {
-	success = 1 == int(
-		C.secp256k1_pedersen_commitment_serialize(
-			context.ctx,
-			cBuf(data[:]),
-			commitment.com))
+	var data [33]C.uchar
+	if 1 != C.secp256k1_pedersen_commitment_serialize(
+		context.ctx,
+		&data[0],
+		commit.com) {
+
+		return nil, errors.New(ErrorCommitmentSerialize)
+	}
+	data33 = goBytes(data[:33], 33)
+	return data33, nil
+}
+
+func (commit *Commitment) Bytes() (bytes []byte) {
+	bytes, _ = CommitmentSerialize(commit.context, commit)
 	return
 }
 
-func (commitment *Commitment) Bytes() (bytes []byte) {
-	_, bb, _ := CommitmentSerialize(commitment.context, commitment)
-	return bb[:]
+func (commit *Commitment) Hex() string {
+	return hex.EncodeToString(commit.Bytes())
 }
-
-/*func (commitment *Commitment) Parse(bytes [33]byte) error {
-	success, com, err := CommitmentParse(commitment.context, commitment)
-	if error != nil {
-		return err
-	}
-	if !success {
-		return error.New("Parsing error")
-	}
-	commitment.com = com.com
-	return nil
-}*/
-
-func (commitment *Commitment) Hex() (str string) {
-	return hex.EncodeToString(commitment.Bytes())
+func Unhex(str string) (bytes []byte) {
+	bytes, _ = hex.DecodeString(str)
+	return
 }
-
-/*func (commitment *Commitment) HexParse(str string) error {
-	commbytes, err := hex.DecodeString(str)
-	if err != nil {
-		return err
-	}
-	return commitment.Parse(commbytes)
-}*/
+func (context *Context) CommitmentFromHex(str string) (commit *Commitment) {
+	commit, _ = CommitmentParse(context, Unhex(str))
+	return
+}
 
 ///** Initialize context for usage with Pedersen commitments.
 // *
@@ -163,28 +153,33 @@ func (commitment *Commitment) Hex() (str string) {
  *      Blinding factors can be generated and verified in the same way as secp256k1
  *      private keys for ECDSA.
  */
+//  SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
+// 		const secp256k1_context* ctx,
+// 		secp256k1_pedersen_commitment *commit,
+// 		const unsigned char *blind,
+// 		uint64_t value,
+// 		const secp256k1_generator *value_gen,
+// 		const secp256k1_generator *blind_gen
+//  ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
 func Commit(
 	context *Context,
-	blind [32]byte,
+	blind []byte,
 	value uint64,
 	valuegen *Generator,
 	blindgen *Generator,
-) (
-	bool,
-	*Commitment,
-	error,
-) {
+) (*Commitment, error) {
 	commit := newCommitment(context)
-	status := int(
-		C.secp256k1_pedersen_commit(
-			context.ctx,
-			commit.com,
-			cBuf(blind[:]),
-			C.uint64_t(value),
-			valuegen.gen,
-			blindgen.gen))
+	if 1 != C.secp256k1_pedersen_commit(
+		context.ctx,
+		commit.com,
+		cBuf(blind),
+		C.uint64_t(value),
+		valuegen.gen,
+		blindgen.gen) {
 
-	return status == 1, commit, nil
+		return nil, errors.New(ErrorCommitmentError)
+	}
+	return commit, nil
 }
 
 /** Generate a commitment from two blinding factors.
@@ -203,26 +198,23 @@ func Commit(
  */
 func BlindCommit(
 	context *Context,
-	blind [32]byte,
-	value [32]byte,
+	blind []byte,
+	value []byte,
 	valuegen *Generator,
 	blindgen *Generator,
-) (
-	bool,
-	*Commitment,
-	error,
-) {
+) (*Commitment, error) {
 	commit := newCommitment(context)
-	status := int(
-		C.secp256k1_pedersen_blind_commit(
-			context.ctx,
-			commit.com,
-			cBuf(blind[:]),
-			cBuf(value[:]),
-			valuegen.gen,
-			blindgen.gen))
+	if 1 != C.secp256k1_pedersen_blind_commit(
+		context.ctx,
+		commit.com,
+		cBuf(blind),
+		cBuf(value),
+		valuegen.gen,
+		blindgen.gen) {
 
-	return status == 1, commit, nil
+		return nil, errors.New(ErrorCommitmentError)
+	}
+	return commit, nil
 }
 
 /** Computes the sum of multiple positive and negative blinding factors.
@@ -239,31 +231,39 @@ func BlindCommit(
  *
  *  Out:    blind_out:  pointer to a 32-byte array for the sum (cannot be NULL)
  */
+/* SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_blind_sum(
+//  const secp256k1_context* ctx,
+//  unsigned char *blind_out,
+//  const unsigned char * const *blinds,
+//  size_t n,
+//  size_t npositive  */
 func BlindSum(
 	context *Context,
-	blinds [][32]byte,
-	npositive int,
-) (
-	success bool,
-	blindout [32]byte,
-	failure error,
-) {
-	bl := len(blinds)
-	bs := C.makeBytesArray(C.int(bl))
-	for i := 0; i < bl; i++ {
-		C.setBytesArray(bs, cBuf(blinds[i][:]), C.int(i))
+	posblinds [][32]byte,
+	negblinds [][32]byte,
+) ([]byte, error) {
+	npositive := len(posblinds)
+	blinds := C.makeBytesArray(C.int(npositive + len(negblinds)))
+	for pi, pb := range posblinds {
+		C.setBytesArray(blinds, cBuf(pb[:]), C.int(pi))
 	}
-	defer C.freeBytesArray(bs)
+	for ni, nb := range negblinds {
+		C.setBytesArray(blinds, cBuf(nb[:]), C.int(npositive+ni))
+	}
+	defer C.freeBytesArray(blinds)
 
-	success = 1 == int(
-		C.secp256k1_pedersen_blind_sum(
-			context.ctx,
-			cBuf(blindout[:]),
-			bs,
-			C.size_t(bl),
-			C.size_t(npositive)))
+	var result [32]byte
+	if 1 != C.secp256k1_pedersen_blind_sum(
+		context.ctx,
+		cBuf(result[:]),
+		blinds,
+		C.size_t(C.int(npositive+len(negblinds))),
+		C.size_t(npositive)) {
 
-	return
+		return nil, errors.New(ErrorCommitmentError)
+	}
+
+	return result[:], nil
 }
 
 /** Computes the sum of multiple positive and negative pedersen commitments
@@ -279,32 +279,28 @@ func CommitSum(
 	context *Context,
 	poscommits []*Commitment,
 	negcommits []*Commitment,
-) (
-	bool, *Commitment, error,
-) {
-	poscnt := len(poscommits)
-	posarr := C.makeCommitmentsArray(C.int(poscnt))
-	for i := 0; i < poscnt; i++ {
-		C.setCommitmentsArray(posarr, poscommits[i].com, C.int(i))
-	}
+) (*Commitment, error) {
+	posarr := C.makeCommitmentsArray(C.int(len(poscommits)))
 	defer C.freeCommitmentsArray(posarr)
-
-	negcnt := len(negcommits)
-	negarr := C.makeCommitmentsArray(C.int(negcnt))
-	for i := 0; i < negcnt; i++ {
-		C.setCommitmentsArray(negarr, negcommits[i].com, C.int(i))
+	for pi, pc := range poscommits {
+		C.setCommitmentsArray(posarr, pc.com, C.int(pi))
 	}
+	negarr := C.makeCommitmentsArray(C.int(len(negcommits)))
 	defer C.freeCommitmentsArray(negarr)
+	for ni, nc := range negcommits {
+		C.setCommitmentsArray(negarr, nc.com, C.int(ni))
+	}
 
 	commit := newCommitment(context)
-	status := int(
-		C.secp256k1_pedersen_commit_sum(
-			context.ctx,
-			commit.com,
-			posarr, C.size_t(poscnt),
-			negarr, C.size_t(negcnt)))
+	if 1 != C.secp256k1_pedersen_commit_sum(
+		context.ctx,
+		commit.com,
+		posarr, C.size_t(len(poscommits)),
+		negarr, C.size_t(len(negcommits))) {
 
-	return status == 1, commit, nil
+		return nil, errors.New(ErrorCommitmentError)
+	}
+	return commit, nil
 }
 
 /** Verify a tally of Pedersen commitments
@@ -327,38 +323,26 @@ func VerifyTally(
 	context *Context,
 	poscommits []*Commitment,
 	negcommits []*Commitment,
-) (
-	success bool,
-	failure error,
-) {
-	poscnt := len(poscommits)
-	posarr := C.makeCommitmentsArray(C.int(poscnt))
-	for i := 0; i < poscnt; i++ {
-		C.setCommitmentsArray(
-			posarr,
-			poscommits[i].com,
-			C.int(i))
-	}
+) error {
+	posarr := C.makeCommitmentsArray(C.int(len(poscommits)))
 	defer C.freeCommitmentsArray(posarr)
-
-	negcnt := len(negcommits)
-	negarr := C.makeCommitmentsArray(C.int(negcnt))
-	for i := 0; i < negcnt; i++ {
-		C.setCommitmentsArray(
-			negarr,
-			negcommits[i].com,
-			C.int(i))
+	for pi, pc := range poscommits {
+		C.setCommitmentsArray(posarr, pc.com, C.int(pi))
 	}
+	negarr := C.makeCommitmentsArray(C.int(len(negcommits)))
 	defer C.freeCommitmentsArray(negarr)
+	for ni, nc := range negcommits {
+		C.setCommitmentsArray(negarr, nc.com, C.int(ni))
+	}
 
-	success = 1 == int(
-		C.secp256k1_pedersen_verify_tally(
-			context.ctx,
-			posarr,
-			C.size_t(poscnt),
-			negarr,
-			C.size_t(negcnt)))
-	return
+	if 1 != C.secp256k1_pedersen_verify_tally(
+		context.ctx,
+		posarr, C.size_t(len(poscommits)),
+		negarr, C.size_t(len(negcommits))) {
+
+		return errors.New(ErrorCommitmentError)
+	}
+	return nil
 }
 
 /** Sets the final Pedersen blinding factor correctly when the generators themselves
@@ -398,15 +382,14 @@ func BlindGeneratorBlindSum(
 	blindingfactor [][32]byte,
 	ninputs int,
 ) (
-	success bool,
-	blindings [][32]byte,
-	failure error,
+	results [][32]byte,
+	err error,
 ) {
 	vbl := len(value)
 	gbl := len(generatorblind)
 	fbl := len(blindingfactor)
 	if vbl != gbl || gbl != fbl {
-		return false, nil, errors.New(ErrorCommitmentCount)
+		return nil, errors.New(ErrorCommitmentCount)
 	}
 	gbls := C.makeBytesArray(C.int(vbl))
 	fbls := C.makeBytesArray(C.int(vbl))
@@ -417,23 +400,25 @@ func BlindGeneratorBlindSum(
 	defer C.freeBytesArray(gbls)
 	defer C.freeBytesArray(fbls)
 
-	success = 1 == int(
-		C.secp256k1_pedersen_blind_generator_blind_sum(
-			context.ctx,
-			u64Arr(value),
-			gbls,
-			fbls,
-			C.size_t(vbl),
-			C.size_t(ninputs)))
+	if 1 != C.secp256k1_pedersen_blind_generator_blind_sum(
+		context.ctx,
+		u64Arr(value),
+		gbls,
+		fbls,
+		C.size_t(vbl),
+		C.size_t(ninputs)) {
 
-	// Copy output from fbls
-	blindings = make([][32]byte, vbl)
-	for i := 0; i < vbl; i++ {
-		b := C.getBytesArray(fbls, C.int(i))
-		copy(blindings[i][:], C.GoBytes(unsafe.Pointer(b), 32))
+		return nil, errors.New(ErrorCommitmentError)
 	}
 
-	return
+	// Copy output from fbls
+	results = make([][32]byte, vbl)
+	for i := 0; i < vbl; i++ {
+		b := C.getBytesArray(fbls, C.int(i))
+		copy(results[i][:], C.GoBytes(unsafe.Pointer(b), 32))
+	}
+
+	return results, nil
 }
 
 /** Calculates the blinding factor x' = x + SHA256(xG+vH | xJ), used in the switch commitment x'G+vH
@@ -457,20 +442,22 @@ func BlindSwitch(
 	blindgen *Generator,
 	switchpubkey *PublicKey,
 ) (
-	success bool,
-	blindswitch [32]byte,
-	failure error,
+	blindswitch []byte,
+	err error,
 ) {
-	success = 1 == int(
-		C.secp256k1_blind_switch(
-			context.ctx,
-			cBuf(blindswitch[:]),
-			cBuf(blind[:]),
-			C.uint64_t(value),
-			valuegen.gen,
-			blindgen.gen,
-			switchpubkey.pk))
-	return
+	var result [32]byte
+	if 1 != C.secp256k1_blind_switch(
+		context.ctx,
+		cBuf(result[:]),
+		cBuf(blind[:]),
+		C.uint64_t(value),
+		valuegen.gen,
+		blindgen.gen,
+		switchpubkey.pk) {
+
+		return nil, errors.New(ErrorCommitmentError)
+	}
+	return result[:], nil
 }
 
 /** Converts a pedersent commit to a pubkey
@@ -487,15 +474,16 @@ func CommitmentToPublicKey(
 	context *Context,
 	commit *Commitment,
 ) (
-	success bool,
 	pubkey *PublicKey,
-	failure error,
+	err error,
 ) {
 	pubkey = newPublicKey()
-	success = 1 == int(
-		C.secp256k1_pedersen_commitment_to_pubkey(
-			context.ctx,
-			pubkey.pk,
-			commit.com))
-	return
+	if 1 != C.secp256k1_pedersen_commitment_to_pubkey(
+		context.ctx,
+		pubkey.pk,
+		commit.com) {
+
+		return nil, errors.New(ErrorCommitmentError)
+	}
+	return pubkey, nil
 }

@@ -1,9 +1,8 @@
-package secp256k1_test
+package secp256k1
 
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/olegabu/go-secp256k1-zkp"
 	"testing"
 	"unsafe"
 
@@ -12,10 +11,10 @@ import (
 
 func TestCommitmentAPI(t *testing.T) {
 
-	ctxNone, _ := secp256k1.ContextCreate(secp256k1.ContextNone)
-	ctxSign, _ := secp256k1.ContextCreate(secp256k1.ContextSign)
-	ctxVrfy, _ := secp256k1.ContextCreate(secp256k1.ContextVerify)
-	ctxBoth, _ := secp256k1.ContextCreate(secp256k1.ContextVerify | secp256k1.ContextSign)
+	ctxNone, _ := ContextCreate(ContextNone)
+	ctxSign, _ := ContextCreate(ContextSign)
+	ctxVrfy, _ := ContextCreate(ContextVerify)
+	ctxBoth, _ := ContextCreate(ContextVerify | ContextSign)
 
 	var valuebytes [8]byte
 	valueLen, err := rand.Read(valuebytes[:])
@@ -26,43 +25,52 @@ func TestCommitmentAPI(t *testing.T) {
 	blindLen, err := rand.Read(blind[:])
 	fmt.Printf("blind=%v, blindLen=%v\n", blind, blindLen)
 
-	status, comNone, err := secp256k1.Commit(ctxNone, blind, value, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
-	assert.True(t, status)
+	comNone, err := Commit(ctxNone, blind[:], value, &GeneratorH, &GeneratorG)
 	assert.NoError(t, err)
 	assert.NotNil(t, comNone)
-	assert.IsType(t, secp256k1.Commitment{}, *comNone)
-	fmt.Printf("comNone=%v\n", *comNone)
+	assert.IsType(t, Commitment{}, *comNone)
+	fmt.Printf("comNone=%v\n", comNone)
 
-	status, comSign, err := secp256k1.Commit(ctxSign, blind, value, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
-	assert.True(t, status)
+	comSer, err := CommitmentSerialize(ctxNone, comNone)
+	assert.NoError(t, err)
+	assert.NotNil(t, comSer)
+	fmt.Printf("comSer=%v\n", comSer)
+
+	comHex := comNone.Hex()
+	comUnhex := ctxNone.CommitmentFromHex(comHex)
+	assert.Same(t, comHex, comUnhex.Hex())
+
+	comParse, err := CommitmentParse(ctxNone, comSer)
+	assert.NoError(t, err)
+	assert.NotNil(t, comParse)
+	fmt.Printf("comParse=%v\n", *comParse)
+
+	comSign, err := Commit(ctxSign, blind[:], value, &GeneratorH, &GeneratorG)
 	assert.NoError(t, err)
 	assert.NotNil(t, comSign)
-	assert.IsType(t, secp256k1.Commitment{}, *comSign)
+	assert.IsType(t, Commitment{}, *comSign)
 	fmt.Printf("comSign=%v\n", *comSign)
 
-	status, comVrfy, err := secp256k1.Commit(ctxVrfy, blind, value, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
-	assert.True(t, status)
+	comVrfy, err := Commit(ctxVrfy, blind[:], value, &GeneratorH, &GeneratorG)
 	assert.NoError(t, err)
 	assert.NotNil(t, comVrfy)
-	assert.IsType(t, secp256k1.Commitment{}, *comVrfy)
+	assert.IsType(t, Commitment{}, *comVrfy)
 	fmt.Printf("comVrfy=%v\n", *comVrfy)
 
-	status, comBoth, err := secp256k1.Commit(ctxBoth, blind, value, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
-	assert.True(t, status)
+	comBoth, err := Commit(ctxBoth, blind[:], value, &GeneratorH, &GeneratorG)
 	assert.NoError(t, err)
 	assert.NotNil(t, comBoth)
-	assert.IsType(t, secp256k1.Commitment{}, *comBoth)
+	assert.IsType(t, Commitment{}, *comBoth)
 	fmt.Printf("comBoth=%v\n", *comBoth)
 
 	var blindarr [1][32]byte = [1][32]byte{blind}
-	success, blindout, err := secp256k1.BlindSum(ctxNone, blindarr[:], 1)
-	assert.True(t, success)
+	blindout, err := BlindSum(ctxNone, blindarr[:], nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, blindout)
 	fmt.Printf("blindout=%v\n", blindout)
 
-	//status, comSign2, err := secp256k1.Commit(ctxSign, blind, val, &secp256k1_generator_const_h, &secp256k1_generator_const_g)
-	//secp256k1.VerifyTally(none, &commit_ptr, 1, &commit_ptr, 1)
+	//status, comSign2, err := Commit(ctxSign, blind, val, &secp256k1_generator_const_h, &secp256k1_generator_const_g)
+	//VerifyTally(none, &commit_ptr, 1, &commit_ptr, 1)
 
 }
 

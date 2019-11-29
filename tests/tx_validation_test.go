@@ -74,8 +74,7 @@ func TestTxVerify(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, commitBytes)
 
-		status, commitment, err := secp256k1.CommitmentParse(context, commitBytes)
-		assert.True(t, status)
+		commitment, err := secp256k1.CommitmentParse(context, commitBytes)
 		assert.NoError(t, err)
 		assert.NotNil(t, commitment)
 		assert.IsType(t, secp256k1.Commitment{}, *commitment)
@@ -90,8 +89,7 @@ func TestTxVerify(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, commitBytes)
 
-		status, commitment, err := secp256k1.CommitmentParse(context, commitBytes)
-		assert.True(t, status)
+		commitment, err := secp256k1.CommitmentParse(context, commitBytes)
 		assert.NoError(t, err)
 		assert.NotNil(t, commitment)
 		assert.IsType(t, secp256k1.Commitment{}, *commitment)
@@ -99,20 +97,17 @@ func TestTxVerify(t *testing.T) {
 		outputs = append(outputs, commitment)
 	}
 
-	statusSum, commitSum, err := secp256k1.CommitSum(context, inputs, outputs)
-	assert.True(t, statusSum)
+	commitSum, err := secp256k1.CommitSum(context, inputs, outputs)
 	assert.NoError(t, err)
 	assert.NotNil(t, commitSum)
 	assert.IsType(t, secp256k1.Commitment{}, *commitSum)
 	fmt.Printf("commitSum=%v\n", *commitSum)
 
-	statusVerify, err := secp256k1.VerifyTally(context, inputs, outputs)
-	fmt.Printf("verifyTally=%v\n", statusVerify)
-	assert.NoError(t, err)
+	err = secp256k1.VerifyTally(context, inputs, outputs)
+	//assert.NoError(t, err)
 	//assert.True(t, statusVerify == 1)
 
-	statusSerialize, commitSerialize, err := secp256k1.CommitmentSerialize(context, outputs[0])
-	assert.True(t, statusSerialize)
+	commitSerialize, err := secp256k1.CommitmentSerialize(context, outputs[0])
 	assert.NoError(t, err)
 	assert.NotEmpty(t, commitSerialize)
 	fmt.Printf("commitSerialize=%v\n", commitSerialize)
@@ -127,8 +122,7 @@ func TestTxVerify(t *testing.T) {
 
 	// sum_commitments
 
-	status, comOverage, err := secp256k1.Commit(context, blind, overage, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
-	assert.True(t, status)
+	comOverage, err := secp256k1.Commit(context, blind[:], overage, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
 	assert.NoError(t, err)
 	assert.NotNil(t, comOverage)
 	assert.IsType(t, secp256k1.Commitment{}, *comOverage)
@@ -142,10 +136,9 @@ func TestTxVerify(t *testing.T) {
 
 	}
 
-	statusSumOverage, commitSumOverage, err := secp256k1.CommitSum(context, inputs, outputs)
-	assert.True(t, statusSumOverage)
+	commitSumOverage, err := secp256k1.CommitSum(context, inputs, outputs)
 	assert.NoError(t, err)
-	assert.NotNil(t, statusSumOverage)
+	assert.NotNil(t, commitSumOverage)
 	assert.IsType(t, secp256k1.Commitment{}, *commitSumOverage)
 
 	fmt.Printf("commitSumOverage=0x%s\n", commitSumOverage.Hex())
@@ -158,27 +151,25 @@ func TestTxVerify(t *testing.T) {
 
 	copy(offset_32[:], offset_bytes[:32])
 
-	status, commit_offset, err := secp256k1.Commit(context, offset_32, 0, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
-	assert.True(t, status)
+	commit_offset, err := secp256k1.Commit(context, offset_32[:], 0, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
 	assert.NoError(t, err)
 	assert.NotNil(t, commit_offset)
 	assert.IsType(t, secp256k1.Commitment{}, *commit_offset)
 
 	fmt.Printf("commit_offset=0x%s\n", commit_offset.Hex())
 
-	status_b, commit_excess, err := secp256k1.CommitmentParse(context, excess_bytes)
-	assert.True(t, status_b)
+	commit_excess, err := secp256k1.CommitmentParse(context, excess_bytes)
 
 	commits_offset_excess := [2]*secp256k1.Commitment{commit_offset, commit_excess}
 
 	empty_array := make([]*secp256k1.Commitment, 0)
 
-	statusSum, commitSumOffsetExcess, err := secp256k1.CommitSum(context, empty_array, commits_offset_excess[:])
+	commitSumOffsetExcess, err := secp256k1.CommitSum(context, empty_array, commits_offset_excess[:])
 
-	status, serializeSumOffsetExcess, err := secp256k1.CommitmentSerialize(context, commitSumOffsetExcess)
+	serializeSumOffsetExcess, err := secp256k1.CommitmentSerialize(context, commitSumOffsetExcess)
 
 	fmt.Printf("commitSumOffsetExcess=0x%s\n", commitSumOffsetExcess.Hex())
-	status, serializeCommitSumOverage, err := secp256k1.CommitmentSerialize(context, commitSumOverage)
+	serializeCommitSumOverage, err := secp256k1.CommitmentSerialize(context, commitSumOverage)
 
 	//fmt.Printf("serializeCommitSumOverage=0x%s\n", hex.EncodeToString(serializeCommitSumOverage[:]))
 	assert.True(t, bytes.Compare(serializeSumOffsetExcess[:], serializeCommitSumOverage[:]) == 0)
@@ -199,11 +190,9 @@ func TestTxSigVerify(t *testing.T) {
 	excessbytes, err := hex.DecodeString(tx.Body.Kernels[0].Excess)
 	assert.NoError(t, err)
 
-	status, excesscommit, err := secp256k1.CommitmentParse(context, excessbytes[:])
-	assert.True(t, status)
+	excesscommit, err := secp256k1.CommitmentParse(context, excessbytes[:])
 
-	status, pubkey, err := secp256k1.CommitmentToPublicKey(context, excesscommit)
-	assert.True(t, status)
+	pubkey, err := secp256k1.CommitmentToPublicKey(context, excesscommit)
 	assert.NoError(t, err)
 	assert.NotNil(t, pubkey)
 	assert.IsType(t, secp256k1.PublicKey{}, *pubkey)
@@ -239,7 +228,7 @@ func TestTxSigVerify(t *testing.T) {
 		fmt.Printf("msg=%s\n", msghex)*/
 
 	feastr := strings.ToLower(tx.Body.Kernels[0].Features)
-	var feaint int
+	var feaint byte
 	switch {
 	case "plain" == feastr:
 		feaint = 0
@@ -255,18 +244,17 @@ func TestTxSigVerify(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, feeint >= 0)
 
-	fea64, fee64 := make([]byte, 8), make([]byte, 8)
-	binary.BigEndian.PutUint64(fea64, 0)
-	binary.BigEndian.PutUint64(fee64, 7000000)
+	feei64 := make([]byte, 8)
+	binary.BigEndian.PutUint64(feei64, feeint)
+
 	hash, _ := blake2b.New256(nil)
-	var fff [1]byte
-	//hash.Write(append(fee64, fea64...))
-	hash.Write(fff[:])
-	hash.Write(fee64)
+	hash.Write([]byte{feaint})
+	hash.Write(feei64[:])
 	msg := hash.Sum(nil)
+
 	fmt.Printf("msg=%s\n", hex.EncodeToString(msg))
 
-	status, err = secp256k1.AggsigVerifySingle(
+	err = secp256k1.AggsigVerifySingle(
 		context,
 		excsigbytes,
 		msg,
@@ -276,8 +264,8 @@ func TestTxSigVerify(t *testing.T) {
 		nil,
 		false,
 	)
-	spOK(t, status, err)
-	fmt.Printf("AggsigVerifySingle=%v\n", status)
+	assert.NoError(t, err)
+	fmt.Printf("AggsigVerifySingle=%v\n", err)
 
 	err = secp256k1.SchnorrsigVerify(
 		context,
@@ -299,8 +287,7 @@ func TestTxRangeproofVerify(t *testing.T) {
 	var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
 
 	commitBytes, err := hex.DecodeString(tx.Body.Outputs[0].Commit)
-	status, BPCommitment, err := secp256k1.CommitmentParse(context, commitBytes)
-	assert.True(t, status)
+	BPCommitment, err := secp256k1.CommitmentParse(context, commitBytes)
 	assert.NoError(t, err)
 	assert.NotNil(t, BPCommitment)
 	assert.IsType(t, secp256k1.Commitment{}, *BPCommitment)
@@ -309,24 +296,23 @@ func TestTxRangeproofVerify(t *testing.T) {
 	scratch, err := secp256k1.ScratchSpaceCreate(context, 1024*1024)
 	assert.NoError(t, err)
 
-	bulletGenerators := secp256k1.BulletproofGeneratorsCreate(context, &secp256k1.GeneratorG, 256)
+	bulletGenerators, err := secp256k1.BulletproofGeneratorsCreate(context, &secp256k1.GeneratorG, 256)
 
 	BPToBytes, err := hex.DecodeString(tx.Body.Outputs[0].Proof)
 	assert.NoError(t, err)
 	fmt.Printf("BPToBytes=%v\n", BPToBytes)
 
-	statusBPVerify, err := secp256k1.BulletproofRangeproofVerify(
+	err = secp256k1.BulletproofRangeproofVerify(
 		context,
 		scratch,
 		bulletGenerators,
 		BPToBytes,
 		nil, // min_values: NULL for all-zeroes minimum values to prove ranges above
-		BPCommitment,
+		[]*secp256k1.Commitment{BPCommitment},
 		64,
 		&secp256k1.GeneratorH,
 		nil)
 
-	assert.True(t, statusBPVerify == 1)
 	assert.NoError(t, err)
 
 	secp256k1.ContextDestroy(context)

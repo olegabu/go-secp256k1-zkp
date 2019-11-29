@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/olegabu/go-secp256k1-zkp"
 	zkp "github.com/olegabu/go-secp256k1-zkp"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,11 +35,11 @@ func TestSchnorrsigSerialize(t *testing.T) {
 		0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12,
 		0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12}
 
-	sig, err := secp256k1.SchnorrsigParse(ctx, in[:])
+	sig, err := zkp.SchnorrsigParse(ctx, in)
 	assert.NotNil(t, sig)
 	assert.NoError(t, err)
 
-	out, err := secp256k1.SchnorrsigSerialize(ctx, sig)
+	out, err := zkp.SchnorrsigSerialize(ctx, sig)
 	assert.NotEmpty(t, out)
 	assert.NoError(t, err)
 	assert.Equal(t, in, out)
@@ -84,8 +83,7 @@ func testSchnorrsigBIPVectorsCheckSign(
 
 	assert.True(t, bytes.Compare(expectsig, sigser) == 0)
 
-	successint, pubkey, err := zkp.EcPubkeyParse(ctx, pubkeyserialized)
-	assert.True(t, successint == 1)
+	_, pubkey, err := zkp.EcPubkeyParse(ctx, pubkeyserialized)
 	assert.NoError(t, err)
 	assert.NotNil(t, pubkey)
 
