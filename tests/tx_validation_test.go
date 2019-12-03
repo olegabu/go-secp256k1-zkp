@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strconv"
-	"strings"
 	"testing"
 
 	secp256k1 "github.com/olegabu/go-secp256k1-zkp"
@@ -22,6 +21,36 @@ import (
 )
 
 var txPrinted bool
+
+type Plain3 struct {
+	Fee string `json:"fee"`
+}
+
+type Features3 struct {
+	Plain Plain3 `json:"Plain"`
+}
+
+type Kernel3 struct {
+	Features  Features3 `json:"features"`
+	Excess    string    `json:"excess"`
+	ExcessSig string    `json:"excess_sig"`
+}
+
+type Tx3 struct {
+	Offset string `json:"offset"`
+	Body   struct {
+		Inputs []struct {
+			Features string `json:"features"`
+			Commit   string `json:"commit"`
+		} `json:"inputs"`
+		Outputs []struct {
+			Features string `json:"features"`
+			Commit   string `json:"commit"`
+			Proof    string `json:"proof"`
+		} `json:"outputs"`
+		Kernels []Kernel3 `json:"kernels"`
+	} `json:"body"`
+}
 
 type TxKernel struct {
 	Features   string `json:"features"`
@@ -47,6 +76,10 @@ type Tx struct {
 	} `json:"body"`
 }
 
+type Slate struct {
+	Transaction Tx `json:"tx"`
+}
+
 func ReadTx(t *testing.T, filename string) *Tx {
 	text, err := ioutil.ReadFile(filename) // 10_grin_repost.json
 	assert.NoError(t, err)
@@ -61,9 +94,37 @@ func ReadTx(t *testing.T, filename string) *Tx {
 	return tx
 }
 
+func ReadTx3(t *testing.T, filename string) *Tx3 {
+	text, err := ioutil.ReadFile(filename) // 10_grin_repost.json
+	assert.NoError(t, err)
+	if !txPrinted {
+		fmt.Println("=====BEGIN OF TRANSACTION V3=====")
+		fmt.Println(string(text))
+		fmt.Println("=====END OF TRANSACTION V3=====")
+		txPrinted = true
+	}
+	tx := new(Tx3)
+	json.Unmarshal(text, tx)
+	return tx
+}
+
+func ReadSlate(t *testing.T, filename string) *Slate {
+	text, err := ioutil.ReadFile(filename) // 10_grin_repost.json
+	assert.NoError(t, err)
+	if !txPrinted {
+		fmt.Println("=====BEGIN OF SLATE=====")
+		fmt.Println(string(text))
+		fmt.Println("=====END OF SLATE=====")
+		txPrinted = true
+	}
+	slt := new(Slate)
+	json.Unmarshal(text, slt)
+	return slt
+}
+
 func TestTxVerify(t *testing.T) {
 
-	tx := ReadTx(t, "10_grin_repost.json")
+	tx := ReadSlate(t, "1g_final.json").Transaction
 
 	var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
 
@@ -180,7 +241,8 @@ func TestTxVerify(t *testing.T) {
 // Schnorr/aggsig signature verify
 func TestTxSigVerify(t *testing.T) {
 
-	tx := ReadTx(t, "10_grin_kernel.json")
+	//tx := ReadSlate(t, "1g_final.json").Transaction
+	tx := ReadTx3(t, "1g_rep.json")
 
 	var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
 
@@ -227,7 +289,19 @@ func TestTxSigVerify(t *testing.T) {
 		msghex := hex.EncodeToString(msg)
 		fmt.Printf("msg=%s\n", msghex)*/
 
-	feastr := strings.ToLower(tx.Body.Kernels[0].Features)
+	var feeint uint64
+	//feeint, err = strconv.ParseUint(tx.Body.Kernels[0].Fee, 10, 64)
+	assert.NoError(t, err)
+	assert.True(t, feeint >= 0)
+
+	//if tx.Body.Kernels[0].Features.
+	var feastr string
+	//feastr = strings.ToLower(tx.Body.Kernels[0].Features))
+	if feastr == "" {
+		feastr = "plain"
+		feeint, err = strconv.ParseUint(tx.Body.Kernels[0].Features.Plain.Fee, 10, 64)
+	}
+	
 	var feaint byte
 	switch {
 	case "plain" == feastr:
@@ -240,9 +314,6 @@ func TestTxSigVerify(t *testing.T) {
 		t.FailNow()
 	}
 	assert.True(t, feaint >= 0 && feaint <= 2)
-	feeint, err := strconv.ParseUint(tx.Body.Kernels[0].Fee, 10, 64)
-	assert.NoError(t, err)
-	assert.True(t, feeint >= 0)
 
 	feei64 := make([]byte, 8)
 	binary.BigEndian.PutUint64(feei64, feeint)
@@ -260,7 +331,7 @@ func TestTxSigVerify(t *testing.T) {
 		msg,
 		nil,
 		pubkey,
-		pubkey,
+		nil,
 		nil,
 		false,
 	)

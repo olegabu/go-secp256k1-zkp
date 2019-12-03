@@ -1,0 +1,47 @@
+{
+    "version_info": {
+        "version": 3,
+        "orig_version": 3,
+        "block_header_version": 2
+    },
+    "num_participants": 2,
+    "id": "53a7a720-afa9-48de-99e1-3cbb27d89d82",
+    "tx": {
+        "offset": "fb6cfc60871c81e72e820c6900e6b7e16e4895f20fd527d5d4f327ffa2978776",
+        "body": {
+            "inputs": [{
+                "features": "Plain",
+                "commit": "0887798757d208b3f1f597daee46775027eb74d487cc1f0d99d9a6ff2c8266788f"
+            }, {
+                "features": "Plain",
+                "commit": "088e163d3771f5af6b45fa90d4af36460ca0f536b3d3c629418cdc6ba14841f912"
+            }],
+            "outputs": [{
+                "features": "Plain",
+                "commit": "08f9b80af18781bba1df2bb69398abba15d4cbc91a9ed12f4102a5366077838672",
+                "proof": "a38409352bd19adab834d500cf69b322f6a0ca1b8ac404eee4b7e8245af7732d337a59c33b68364245269f8fe5340262acfb3b97c2382cc43ffd54a1a4ef47cd036c4d2aac2a5f7801a77517328aec086614b54a26cb5ec60b0fdedfaccbbe507f91d976b1bca75e8142c90ea3f2897e3bf615b4238eaa65f07a57edb8c27d95f7b896f0002c890a2642bfc6f55a5cb459d4c922a5403a9e13b5873f3d56f783d44f742fc43eefd9b43b33930d90eddc41316b8c20f6c83ba652dafbbd520b1a2a03d0938902b58feb797f6353d151d359fe3c66188226da2bfbdedaadf66460bcf7d73fdb5975d6f88a0987c7f3ee1f8760e520810fd8dcb65da6f42b3f0bd567ae9d2db925da198b25386fb001381f44c570514c9b7ae343c0822521dbfc7f4060287e0c4a60a49cf4f62893ae81649395c0585b5dbaa7295f53b0a36ad3144eff7dfd01a7c5a152bf5f8f025081828060155b4f05bddcea0dc5df0df0e675041c027ee58e7e1eafd1300541ef051bce4c71a5c1c3f151f057e6a0e25bf363cac9262e4d1412e1b0e45c5479cd1e8d42720a4002b69fb2771ad724f486d9b46466c2ed31b0c5c0583a7540add002f20363a74a6e006939b0a1083a1273053491b08e9c95f90b2da264114790cc4904baf59ca4418c067d2e4c92f09a90187a51d85c672493f76378a703919f1c3d26dd5fe5a2fac5621299bdd524aa3a41387297a3d7a2f0f15d2c4149272db6faa512115b9b621289b4cda99fe97c441fef4d1a0f09157d0cb7955a81ac18df28a63963f520fc456ca00317ee2455808535fc514b313842a5be8929c82a08ed26a93985d57805ce8a0ca6173bdff0c2f0d0f7f80864e5b033033727ff68de792004512a0a75eab356e10de073d49d5435d308551ae0d2b4b5dadaced40ba5861443896dd776774a15d78894c351de0caa7e449236"
+            }],
+            "kernels": [{
+                "features": "Plain",
+                "fee": "7000000",
+                "lock_height": "0",
+                "excess": "000000000000000000000000000000000000000000000000000000000000000000",
+                "excess_sig": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            }]
+        }
+    },
+    "amount": "1000000000",
+    "fee": "7000000",
+    "height": "274618",
+    "lock_height": "0",
+    "ttl_cutoff_height": "0",
+    "participant_data": [{
+        "id": "0",
+        "public_blind_excess": "0327da1ffc6cd52c4a74761dcf416f6d392106e5d0894aa2ed7a7dc80ce6ec3025",
+        "public_nonce": "02349356c5c320b8061daee5e9010feef6eade9ea254215db50e09caee89be7ed0",
+        "part_sig": null,
+        "message": null,
+        "message_sig": null
+    }],
+    "payment_proof": null
+}

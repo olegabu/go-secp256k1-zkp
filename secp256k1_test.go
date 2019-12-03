@@ -2,9 +2,11 @@ package secp256k1
 
 import (
 	"crypto/rand"
-	"github.com/stretchr/testify/assert"
+	"fmt"
 	"io"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func testingRand32() [32]byte {
@@ -22,6 +24,15 @@ func testingRand(n int) []byte {
 		panic(err)
 	}
 	return key
+}
+
+func TestRand256(t *testing.T) {
+
+	var rnd [2][32]byte = [2][32]byte{Random256(), Random256()}
+	fmt.Printf("Random256(): %x\nRandom256(): %x\n", rnd[0], rnd[1])
+	assert.NotEmpty(t, rnd[0][:])
+	assert.NotEmpty(t, rnd[1][:])
+	assert.NotEqual(t, rnd[0], rnd[1])
 }
 
 func Test_ContextCreate1(t *testing.T) {
