@@ -331,41 +331,41 @@ func sizetArr(goSlice []C.size_t) *C.size_t {
  * extra_commit_len: length of additional data
  *          message: optional 20 bytes of message to recover
  */
-func BulletproofRangeproofRewind(
-	context *Context,
-	proof []byte,
-	minvalue uint64,
-	commit *Commitment,
-	valuegen *Generator,
-	nonce [32]byte,
-	extracommit []byte,
-	message [20]byte,
-) (
-	status int,
-	value uint64,
-	blind [32]byte,
-	err error,
-) {
-	var val, minval [2]C.ulong
-	minval[0] = C.ulong(minvalue >> 32)
-	minval[1] = C.ulong(minvalue & 0xffffffff)
-	status = int(
-		C.secp256k1_bulletproof_rangeproof_rewind(
-			context.ctx,
-			&val[0],
-			cBuf(blind[:]),
-			cBuf(proof),
-			C.size_t(len(proof)),
-			minval[0],
-			commit.com,
-			valuegen.gen,
-			cBuf(nonce[:]),
-			cBuf(extracommit),
-			C.size_t(len(extracommit)),
-			cBuf(message[:])))
-	value = uint64(val[0]<<32 | val[1])
-	return
-}
+//func BulletproofRangeproofRewind(
+//	context *Context,
+//	proof []byte,
+//	minvalue uint64,
+//	commit *Commitment,
+//	valuegen *Generator,
+//	nonce [32]byte,
+//	extracommit []byte,
+//	message [20]byte,
+//) (
+//	status int,
+//	value uint64,
+//	blind [32]byte,
+//	err error,
+//) {
+//	var val, minval [2]C.ulong
+//	minval[0] = C.ulong(minvalue >> 32)
+//	minval[1] = C.ulong(minvalue & 0xffffffff)
+//	status = int(
+//		C.secp256k1_bulletproof_rangeproof_rewind(
+//			context.ctx,
+//			&val[0],
+//			cBuf(blind[:]),
+//			cBuf(proof),
+//			C.size_t(len(proof)),
+//			minval[0],
+//			commit.com,
+//			valuegen.gen,
+//			cBuf(nonce[:]),
+//			cBuf(extracommit),
+//			C.size_t(len(extracommit)),
+//			cBuf(message[:])))
+//	value = uint64(val[0]<<32 | val[1])
+//	return
+//}
 
 /** Produces an aggregate Bulletproof rangeproof for a set of Pedersen commitments
 *
