@@ -178,16 +178,19 @@ func AggsigGenerateNonce(
 func AggsigGenerateSecureNonce(
 	contextnn *Context,
 	seed32 []byte,
-) (secnonce32 []byte, err error) {
-	var secnonce [32]byte
+) (secnonce32 [32]byte, err error) {
+	if seed32 == nil {
+		seed := Random256()
+		seed32 = seed[:]
+	}
 	if 1 != C.secp256k1_aggsig_export_secnonce_single(
 		contextnn.ctx,
-		cBuf(secnonce[:]),
+		cBuf(secnonce32[:]),
 		cBuf(seed32)) {
 
-		return nil, errors.New(ErrorAggsigGenSecNonce)
+		err = errors.New(ErrorAggsigGenSecNonce)
 	}
-	return secnonce[:], nil
+	return
 }
 
 /** Opaque data structure that holds a partial signature
@@ -252,6 +255,10 @@ func AggsigSignSingle(
 	sig64 []byte,
 	err error,
 ) {
+	if seed32 == nil {
+		seed := Random256()
+		seed32 = seed[:]
+	}
 	var pubnonce_for_e_pk, pubkey_for_e_pk, pubnonce_total_pk *C.secp256k1_pubkey
 	if pubnonce_for_e != nil {
 		pubnonce_for_e_pk = pubnonce_for_e.pk
