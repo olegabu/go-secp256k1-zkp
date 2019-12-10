@@ -41,75 +41,114 @@ func TestAggsigContext(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestAggsigSignSingle(t *testing.T) {
+func TestAggsigGrin(t *testing.T) {
+
+	// Context objs
 	sign, _ := ContextCreate(ContextSign)
 	vrfy, _ := ContextCreate(ContextVerify)
+	
+	// Cleanup at scope exit
+	defer ContextDestroy(sign)
+	defer ContextDestroy(vrfy)
 
-	var err error
-	var sec_nonces [2][32]byte
-	sec_nonces[0], err = AggsigGenerateSecureNonce(sign, nil)
-	assert.NoError(t, err)
-	sec_nonces[1], err = AggsigGenerateSecureNonce(sign, nil)
-	assert.NoError(t, err)
+	// //////////////////////////////////////////////////// //
+	// **** Testing aggsig exchange algorithm for Grin **** //
 
-	var res int
-	var pub_nonces [2]*PublicKey
-	res, pub_nonces[0], err = EcPubkeyCreate(ctx, sec_nonces[0][:])
-	assert.True(t, res == 1)
-	assert.NoError(t, err)
-	res, pub_nonces[1], err = EcPubkeyCreate(ctx, sec_nonces[1][:])
-	assert.True(t, res == 1)
-	assert.NoError(t, err)
+	var sigs [3][]byte
 
-	var seckeys [2][32]byte
-	seckeys[0] = Random256()
-	assert.NoError(t, err)
-	seckeys[1] = Random256()
-	assert.NoError(t, err)
+	for i := 0; i < 20; i++ {
 
-	var pubkeys [2]*PublicKey
-	res, pubkeys[0], err = EcPubkeyCreate(ctx, seckeys[0][:])
-	assert.True(t, res == 1)
-	res, pubkeys[1], err = EcPubkeyCreate(ctx, seckeys[1][:])
-	assert.True(t, res == 1)
+		sigs[0] = nil
+		sigs[1] = nil
+		sigs[2] = nil
 
-	/* Combine pubkeys */
-	var pubkey_combiner [2]*PublicKey
-	pubkey_combiner[0] = pub_nonces[0]
-	pubkey_combiner[1] = pub_nonces[1]
-	res, combiner_sum, err := EcPubkeyCombine(ctx, pubkey_combiner[:])
-	assert.True(t, res == 1)
-	pubkey_combiner[0] = pubkeys[0]
-	pubkey_combiner[1] = pubkeys[1]
-	res, combiner_sum_2, err := EcPubkeyCombine(ctx, pubkey_combiner[:])
-	assert.True(t, res == 1)
+		var res int
+		var err error
 
-	msg := Random256()
+		var secNonces [2][32]byte
+		var secBlinds [2][32]byte
+		var pubNonces [2]*PublicKey
+		var pubBlinds [2]*PublicKey
 
-	/* Create 2 partial signatures (Sender, Receiver)*/
-	sig, err := AggsigSignSingle(sign, msg[:], seckeys[0][:], sec_nonces[0][:], nil, combiner_sum, combiner_sum, combiner_sum_2, nil)
-	assert.NoError(t, err)
+		// Create a couple of nonces
+		secNonces[0], err = AggsigGenerateSecureNonce(sign, nil)
+		assert.NoError(t, err)
+		secNonces[1], err = AggsigGenerateSecureNonce(sign, nil)
+		assert.NoError(t, err)
 
-	/* Receiver verifies sender's Sig and signs */
-	err = AggsigVerifySingle(vrfy, sig, msg[:], combiner_sum, pubkeys[0], combiner_sum_2, nil, true)
-	assert.NoError(t, err)
-	sig2, err := AggsigSignSingle(sign, msg[:], seckeys[1][:], sec_nonces[1][:], nil, combiner_sum, combiner_sum, combiner_sum_2, nil)
-	assert.NoError(t, err)
-	/* sender verifies receiver's Sig then creates final combined sig */
-	err = AggsigVerifySingle(vrfy, sig2, msg[:], combiner_sum, pubkeys[1], combiner_sum_2, nil, true)
-	assert.NoError(t, err)
+		res, pubNonces[0], err = EcPubkeyCreate(ctx, secNonces[0][:])
+		assert.True(t, res == 1)
+		assert.NoError(t, err)
+		res, pubNonces[1], err = EcPubkeyCreate(ctx, secNonces[1][:])
+		assert.True(t, res == 1)
+		assert.NoError(t, err)
 
-	var sigs [2][]byte
-	sigs[0] = sig
-	sigs[1] = sig2
-	/* Add 2 sigs and nonces */
-	combined_sig, err := AggsigAddSignaturesSingle(sign, sigs[:], combiner_sum)
-	assert.NoError(t, err)
+		// Randomize keys
+		secBlinds[0] = Random256()
+		assert.NoError(t, err)
+		secBlinds[1] = Random256()
+		assert.NoError(t, err)
 
-	/* Ensure added sigs verify properly (with and without providing nonce_sum */
-	err = AggsigVerifySingle(vrfy, combined_sig, msg[:], combiner_sum, combiner_sum_2, combiner_sum_2, nil, false)
-	assert.NoError(t, err)
-	err = AggsigVerifySingle(vrfy, combined_sig, msg[:], nil, combiner_sum_2, combiner_sum_2, nil, false)
-	assert.NoError(t, err)
+		res, pubBlinds[0], err = EcPubkeyCreate(ctx, secBlinds[0][:])
+		assert.True(t, res == 1)
+		res, pubBlinds[1], err = EcPubkeyCreate(ctx, secBlinds[1][:])
+		assert.True(t, res == 1)
 
+		var combiner [2]*PublicKey
+
+		// Combine pubnonces
+		combiner[0] = pubNonces[0]
+		combiner[1] = pubNonces[1]
+		res, sumPubNonces, err := EcPubkeyCombine(ctx, combiner[:])
+		assert.True(t, res == 1)
+
+		// Combine pubBlinds
+		combiner[0] = pubBlinds[0]
+		combiner[1] = pubBlinds[1]
+		res, sumPubBlinds, err := EcPubkeyCombine(ctx, combiner[:])
+		assert.True(t, res == 1)
+
+		msg32 := Random256()
+		msg := msg32[:]
+
+		// Create 2 partial signatures (Sender, Receiver)
+		sigs[0], err = AggsigSignSingle(sign, msg[:], secBlinds[0][:], secNonces[0][:], nil, sumPubNonces, sumPubNonces, sumPubBlinds, nil)
+		assert.NoError(t, err)
+
+		// Receiver verifies sender's Sig and signs
+		err = AggsigVerifySingle(vrfy, sigs[0], msg[:], sumPubNonces, pubBlinds[0], sumPubBlinds, nil, true)
+		assert.NoError(t, err)
+
+		// ... and Receiver signs it's Sig
+		sigs[1], err = AggsigSignSingle(sign, msg[:], secBlinds[1][:], secNonces[1][:], nil, sumPubNonces, sumPubNonces, sumPubBlinds, nil)
+		assert.NoError(t, err)
+
+		// Sender verifies Receiver's Sig then creates final combined Sig
+		err = AggsigVerifySingle(vrfy, sigs[1], msg[:], sumPubNonces, pubBlinds[1], sumPubBlinds, nil, true)
+		assert.NoError(t, err)
+
+		// Add 2 sigs and nonces
+		sigs[2], err = AggsigAddSignaturesSingle(sign, sigs[:2], sumPubNonces)
+		assert.NoError(t, err)
+
+		// Ensure added sigs verify properly (with and without providing nonce_sum), ...
+		assert.NoError(t, AggsigVerifySingle(vrfy, sigs[2], msg, sumPubNonces, sumPubBlinds, sumPubBlinds, nil, false))
+		assert.NoError(t, AggsigVerifySingle(vrfy, sigs[2], msg, nil, sumPubBlinds, sumPubBlinds, nil, false))
+
+		// ... and anything else doesn't
+		assert.Error(t, AggsigVerifySingle(vrfy, sigs[2], msg, sumPubNonces, sumPubBlinds, nil, nil, false))
+		assert.Error(t, AggsigVerifySingle(vrfy, sigs[2], msg, nil, pubNonces[1], nil, nil, false))
+		assert.Error(t, AggsigVerifySingle(vrfy, sigs[2], msg, nil, pubNonces[1], sumPubBlinds, nil, false))
+		assert.Error(t, AggsigVerifySingle(vrfy, sigs[2], msg, pubNonces[0], sumPubBlinds, nil, nil, false))
+		assert.Error(t, AggsigVerifySingle(vrfy, sigs[2], msg, pubNonces[0], sumPubBlinds, sumPubBlinds, nil, false))
+		msg[0] = 1
+		msg[1] = 2
+		msg[2] = 3
+		assert.Error(t, AggsigVerifySingle(vrfy, sigs[2], msg, nil, sumPubBlinds, nil, nil, false))
+		assert.Error(t, AggsigVerifySingle(vrfy, sigs[2], msg, nil, sumPubBlinds, sumPubBlinds, nil, false))
+		
+	}
+	
+	// **** End aggsig for Grin exchange test **** //
+	// /////////////////////////////////////////// //
 }
