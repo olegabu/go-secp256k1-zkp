@@ -19,6 +19,7 @@ import "C"
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -568,3 +569,24 @@ func Random256() (rnd32 [32]byte) {
 	C.secp256k1_rand256(cBuf(rnd32[:]))
 	return
 }
+
+func (pubkey *PublicKey) Bytes(context *Context) (bytes []byte) {
+	_, bytes, _ = EcPubkeySerialize(context, pubkey, EcCompressed)
+	return
+}
+
+func (pubkey *PublicKey) BytesUncompressed(context *Context) (bytes []byte) {
+	_, bytes, _ = EcPubkeySerialize(context, pubkey, EcUncompressed)
+	return
+}
+
+func (pubkey *PublicKey) Hex(context *Context) string {
+	return hex.EncodeToString(pubkey.Bytes(context))
+}
+
+func (context *Context) PublicKeyFromHex(str string) (pubkey *PublicKey) {
+	bytes, _ := hex.DecodeString(str)
+	_, pubkey, _ = EcPubkeyParse(context, bytes)
+	return
+}
+

@@ -58,10 +58,6 @@ func TestAggsigGrin(t *testing.T) {
 
 	for i := 0; i < 20; i++ {
 
-		sigs[0] = nil
-		sigs[1] = nil
-		sigs[2] = nil
-
 		var res int
 		var err error
 
@@ -112,19 +108,24 @@ func TestAggsigGrin(t *testing.T) {
 		msg := msg32[:]
 
 		// Create 2 partial signatures (Sender, Receiver)
-		sigs[0], err = AggsigSignSingle(sign, msg[:], secBlinds[0][:], secNonces[0][:], nil, sumPubNonces, sumPubNonces, sumPubBlinds, nil)
-		assert.NoError(t, err)
-
-		// Receiver verifies sender's Sig and signs
-		err = AggsigVerifySingle(vrfy, sigs[0], msg[:], sumPubNonces, pubBlinds[0], sumPubBlinds, nil, true)
-		assert.NoError(t, err)
+		// sigs[0], err = AggsigSignSingle(sign, msg[:], secBlinds[0][:], secNonces[0][:], nil, sumPubNonces, sumPubNonces, sumPubBlinds, nil)
+		// assert.NoError(t, err)
 
 		// ... and Receiver signs it's Sig
+		//sigs[1], err = AggsigSignSingle(sign, msg[:], secBlinds[1][:], secNonces[1][:], nil, sumPubNonces, sumPubBlinds, sumPubNonces, nil)
 		sigs[1], err = AggsigSignSingle(sign, msg[:], secBlinds[1][:], secNonces[1][:], nil, sumPubNonces, sumPubNonces, sumPubBlinds, nil)
 		assert.NoError(t, err)
 
 		// Sender verifies Receiver's Sig then creates final combined Sig
 		err = AggsigVerifySingle(vrfy, sigs[1], msg[:], sumPubNonces, pubBlinds[1], sumPubBlinds, nil, true)
+		assert.NoError(t, err)
+
+		// Sender calculates it's signature
+		//sigs[0], err = AggsigSignSingle(sign, msg[:], secBlinds[0][:], secNonces[0][:], nil, sumPubNonces, sumPubBlinds, sumPubNonces, nil)
+		sigs[0], err = AggsigSignSingle(sign, msg[:], secBlinds[0][:], secNonces[0][:], nil, sumPubNonces, sumPubNonces, sumPubBlinds, nil)
+		assert.NoError(t, err)
+
+		err = AggsigVerifySingle(vrfy, sigs[0], msg[:], sumPubNonces, pubBlinds[0], sumPubBlinds, nil, true)
 		assert.NoError(t, err)
 
 		// Add 2 sigs and nonces
