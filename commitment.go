@@ -114,12 +114,14 @@ func (commit *Commitment) Bytes() (bytes []byte) {
 func (commit *Commitment) Hex() string {
 	return hex.EncodeToString(commit.Bytes())
 }
+
 func Unhex(str string) (bytes []byte) {
 	bytes, _ = hex.DecodeString(str)
 	return
 }
-func (context *Context) CommitmentFromHex(str string) (commit *Commitment) {
-	commit, _ = CommitmentParse(context, Unhex(str))
+
+func (context *Context) CommitmentFromHex(str string) (com *Commitment, err error) {
+	com, err = CommitmentParse(context, Unhex(str))
 	return
 }
 

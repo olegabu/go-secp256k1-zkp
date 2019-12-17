@@ -397,3 +397,12 @@ func reverseBytes(src []byte) []byte {
 	}
 	return dst
 }
+
+func TestTxVerify(t *testing.T) {
+	var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(context)
+	tx := ReadSlate(t, "1g_final.json").Transaction
+
+
+
+}

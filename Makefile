@@ -13,7 +13,7 @@ deps-secp256k1-zkp:
 
 		cd secp256k1-zkp && \
 		./autogen.sh && \
-		./configure --enable-experimental --enable-module-ecdh --enable-module-recovery --enable-module-bulletproof --enable-module-rangeproof --enable-module-aggsig \
+		AR_FLAGS="cr" ./configure --enable-experimental --enable-module-ecdh --enable-module-recovery --enable-module-bulletproof --enable-module-rangeproof --enable-module-aggsig \
 		            --enable-module-commitment --enable-module-generator --enable-module-schnorrsig  --enable-module-whitelist  --enable-module-surjectionproof \
 					--enable-ecmult-static-precomputation --enable-tests --disable-benchmark --with-bignum=no --with-pic=yes && \
 		make -j4 && \
