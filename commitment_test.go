@@ -37,7 +37,8 @@ func TestCommitmentAPI(t *testing.T) {
 	fmt.Printf("comSer=%v\n", comSer)
 
 	comHex := comNone.Hex()
-	comUnhex := ctxNone.CommitmentFromHex(comHex)
+	comUnhex, err := ctxNone.CommitmentFromHex(comHex)
+	assert.NoError(t, err)
 	assert.Equal(t, comNone, comUnhex)
 
 	comParse, err := CommitmentParse(ctxNone, comSer)

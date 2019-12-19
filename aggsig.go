@@ -394,8 +394,8 @@ func AggsigAddSignaturesSingle(
 	sigs [][]byte,
 	pubnoncetotal *PublicKey,
 ) (
-	sig64 []byte,
-	failure error,
+	sig [64]byte,
+	err error,
 ) {
 	count := len(sigs)
 	csigs := C.makeBytesArray(C.int(count))
@@ -409,17 +409,19 @@ func AggsigAddSignaturesSingle(
 		pubnoncetotalpk = pubnoncetotal.pk
 	}
 
-	output := make([]C.uchar, 64)
+	//output := make([]C.uchar, 64)
 	if 1 != C.secp256k1_aggsig_add_signatures_single(
 		context.ctx,
-		&output[0],
+		cBuf(sig[:]),
 		csigs,
 		C.size_t(count),
 		pubnoncetotalpk) {
 
-		return nil, errors.New(ErrorAggsigAddSigsSingle)
+		err = errors.New(ErrorAggsigAddSigsSingle)
 	}
-	return goBytes(output, 64), nil
+
+	return
+	//return goBytes(output, 64), nil
 }
 
 /** Verify a single-signer signature, without a stored context

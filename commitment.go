@@ -45,6 +45,7 @@ const (
 	ErrorCommitmentCount     string = "Number of elements differ in input arrays"
 	ErrorCommitmentTally     string = "Sums of inputs and outputs are not equal"
 	ErrorCommitmentError     string = "Failed to create a commitment"
+	ErrorCommitmentBlindSum  string = "Failed to calculate sum of blinding factors"
 )
 
 func newCommitment(ctx *Context) *Commitment {
@@ -106,13 +107,13 @@ func CommitmentSerialize(
 	return data33, nil
 }
 
-func (commit *Commitment) Bytes() (bytes []byte) {
-	bytes, _ = CommitmentSerialize(commit.context, commit)
+func (commit *Commitment) Bytes(context *Context) (bytes []byte) {
+	bytes, _ = CommitmentSerialize(context, commit)
 	return
 }
 
-func (commit *Commitment) Hex() string {
-	return hex.EncodeToString(commit.Bytes())
+func (commit *Commitment) Hex(context *Context) string {
+	return hex.EncodeToString(commit.Bytes(context))
 }
 
 func Unhex(str string) (bytes []byte) {
@@ -243,9 +244,14 @@ func BlindSum(
 	context *Context,
 	posblinds [][32]byte,
 	negblinds [][32]byte,
-) ([]byte, error) {
+) (
+	sum [32]byte,
+	err error,
+) {
 	npositive := len(posblinds)
-	blinds := C.makeBytesArray(C.int(npositive + len(negblinds)))
+	ntotal := npositive + len(negblinds)
+
+	blinds := C.makeBytesArray(C.int(ntotal))
 	for pi, pb := range posblinds {
 		C.setBytesArray(blinds, cBuf(pb[:]), C.int(pi))
 	}
@@ -254,18 +260,17 @@ func BlindSum(
 	}
 	defer C.freeBytesArray(blinds)
 
-	var result [32]byte
 	if 1 != C.secp256k1_pedersen_blind_sum(
 		context.ctx,
-		cBuf(result[:]),
+		cBuf(sum[:]),
 		blinds,
-		C.size_t(C.int(npositive+len(negblinds))),
-		C.size_t(npositive)) {
+		C.size_t(C.int(ntotal)),
+		C.size_t(C.int(npositive))) {
 
-		return nil, errors.New(ErrorCommitmentError)
+		err = errors.New(ErrorCommitmentBlindSum)
 	}
 
-	return result[:], nil
+	return
 }
 
 /** Computes the sum of multiple positive and negative pedersen commitments
@@ -281,7 +286,10 @@ func CommitSum(
 	context *Context,
 	poscommits []*Commitment,
 	negcommits []*Commitment,
-) (*Commitment, error) {
+) (
+	sum *Commitment,
+	err error,
+) {
 	posarr := C.makeCommitmentsArray(C.int(len(poscommits)))
 	defer C.freeCommitmentsArray(posarr)
 	for pi, pc := range poscommits {
@@ -293,16 +301,17 @@ func CommitSum(
 		C.setCommitmentsArray(negarr, nc.com, C.int(ni))
 	}
 
-	commit := newCommitment(context)
+	sum = newCommitment(context)
 	if 1 != C.secp256k1_pedersen_commit_sum(
 		context.ctx,
-		commit.com,
+		sum.com,
 		posarr, C.size_t(len(poscommits)),
 		negarr, C.size_t(len(negcommits))) {
 
-		return nil, errors.New(ErrorCommitmentError)
+		err = errors.New(ErrorCommitmentError)
 	}
-	return commit, nil
+
+	return
 }
 
 /** Verify a tally of Pedersen commitments
@@ -344,6 +353,7 @@ func VerifyTally(
 
 		return errors.New(ErrorCommitmentError)
 	}
+
 	return nil
 }
 
@@ -380,8 +390,8 @@ func VerifyTally(
 func BlindGeneratorBlindSum(
 	context *Context,
 	value []uint64,
-	generatorblind [][32]byte,
-	blindingfactor [][32]byte,
+	generatorblind [][]byte,
+	blindingfactor [][]byte,
 	ninputs int,
 ) (
 	results [][32]byte,
@@ -396,8 +406,8 @@ func BlindGeneratorBlindSum(
 	gbls := C.makeBytesArray(C.int(vbl))
 	fbls := C.makeBytesArray(C.int(vbl))
 	for i := 0; i < vbl; i++ {
-		C.setBytesArray(gbls, cBuf(generatorblind[i][:]), C.int(i))
-		C.setBytesArray(fbls, cBuf(blindingfactor[i][:]), C.int(i))
+		C.setBytesArray(gbls, cBuf(generatorblind[i]), C.int(i))
+		C.setBytesArray(fbls, cBuf(blindingfactor[i]), C.int(i))
 	}
 	defer C.freeBytesArray(gbls)
 	defer C.freeBytesArray(fbls)
@@ -438,28 +448,27 @@ func BlindGeneratorBlindSum(
  */
 func BlindSwitch(
 	context *Context,
-	blind [32]byte,
+	blind []byte,
 	value uint64,
 	valuegen *Generator,
 	blindgen *Generator,
 	switchpubkey *PublicKey,
 ) (
-	blindswitch []byte,
+	result [32]byte,
 	err error,
 ) {
-	var result [32]byte
 	if 1 != C.secp256k1_blind_switch(
 		context.ctx,
 		cBuf(result[:]),
-		cBuf(blind[:]),
+		cBuf(blind),
 		C.uint64_t(value),
 		valuegen.gen,
 		blindgen.gen,
 		switchpubkey.pk) {
 
-		return nil, errors.New(ErrorCommitmentError)
+		err = errors.New(ErrorCommitmentError)
 	}
-	return result[:], nil
+	return
 }
 
 /** Converts a pedersent commit to a pubkey
