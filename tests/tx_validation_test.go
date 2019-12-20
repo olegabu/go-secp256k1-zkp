@@ -15,9 +15,10 @@ import (
 	"strconv"
 	"testing"
 
-	secp256k1 "github.com/olegabu/go-secp256k1-zkp"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/olegabu/go-secp256k1-zkp"
 )
 
 var txPrinted bool
@@ -188,7 +189,7 @@ func TestTxVerify(t *testing.T) {
 	assert.NotNil(t, comOverage)
 	assert.IsType(t, secp256k1.Commitment{}, *comOverage)
 
-	fmt.Printf("comOverage=0x%s\n", comOverage.Hex())
+	fmt.Printf("comOverage=0x%s\n", comOverage.Hex(context))
 
 	if overage < 0 {
 		inputs = append(inputs, comOverage)
@@ -202,7 +203,7 @@ func TestTxVerify(t *testing.T) {
 	assert.NotNil(t, commitSumOverage)
 	assert.IsType(t, secp256k1.Commitment{}, *commitSumOverage)
 
-	fmt.Printf("commitSumOverage=0x%s\n", commitSumOverage.Hex())
+	fmt.Printf("commitSumOverage=0x%s\n", commitSumOverage.Hex(context))
 
 	// sum_kernel_excesses
 	offset_bytes, err := hex.DecodeString(tx.Offset)
@@ -217,7 +218,7 @@ func TestTxVerify(t *testing.T) {
 	assert.NotNil(t, commit_offset)
 	assert.IsType(t, secp256k1.Commitment{}, *commit_offset)
 
-	fmt.Printf("commit_offset=0x%s\n", commit_offset.Hex())
+	fmt.Printf("commit_offset=0x%s\n", commit_offset.Hex(context))
 
 	commit_excess, err := secp256k1.CommitmentParse(context, excess_bytes)
 
@@ -229,7 +230,7 @@ func TestTxVerify(t *testing.T) {
 
 	serializeSumOffsetExcess, err := secp256k1.CommitmentSerialize(context, commitSumOffsetExcess)
 
-	fmt.Printf("commitSumOffsetExcess=0x%s\n", commitSumOffsetExcess.Hex())
+	fmt.Printf("commitSumOffsetExcess=0x%s\n", commitSumOffsetExcess.Hex(context))
 	serializeCommitSumOverage, err := secp256k1.CommitmentSerialize(context, commitSumOverage)
 
 	//fmt.Printf("serializeCommitSumOverage=0x%s\n", hex.EncodeToString(serializeCommitSumOverage[:]))
@@ -242,7 +243,7 @@ func TestTxVerify(t *testing.T) {
 func TestTxSigVerify(t *testing.T) {
 
 	//tx := ReadSlate(t, "1g_final.json").Transaction
-	tx := ReadTx3(t, "1g_rep.json")
+	tx := ReadTx(t, "100mg_repost.json")
 
 	var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
 
@@ -296,12 +297,12 @@ func TestTxSigVerify(t *testing.T) {
 
 	//if tx.Body.Kernels[0].Features.
 	var feastr string
-	//feastr = strings.ToLower(tx.Body.Kernels[0].Features))
+	//feastr = strings.ToLower(tx.Body.Kernels[0].Features)
 	if feastr == "" {
 		feastr = "plain"
-		feeint, err = strconv.ParseUint(tx.Body.Kernels[0].Features.Plain.Fee, 10, 64)
+		//feeint = uint64(tx.Body.Kernels[0].Features[0])
 	}
-	
+
 	var feaint byte
 	switch {
 	case "plain" == feastr:
@@ -338,14 +339,14 @@ func TestTxSigVerify(t *testing.T) {
 	assert.NoError(t, err)
 	fmt.Printf("AggsigVerifySingle=%v\n", err)
 
-	err = secp256k1.SchnorrsigVerify(
-		context,
-		schsig,
-		msg,
-		pubkey,
-	)
-	assert.NoError(t, err)
-	fmt.Printf("SchnorrsigVerify=%v\n", err)
+	// err = secp256k1.SchnorrsigVerify(
+	// 	context,
+	// 	schsig,
+	// 	msg,
+	// 	pubkey,
+	// )
+	// assert.NoError(t, err)
+	// fmt.Printf("SchnorrsigVerify=%v\n", err)
 
 	secp256k1.ContextDestroy(context)
 }
@@ -353,7 +354,7 @@ func TestTxSigVerify(t *testing.T) {
 // Verify RangeProof
 func TestTxRangeproofVerify(t *testing.T) {
 
-	tx := ReadTx(t, "10_grin_repost.json")
+	tx := ReadSlate(t, "1g_final.json").Transaction
 
 	var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
 
@@ -362,7 +363,7 @@ func TestTxRangeproofVerify(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, BPCommitment)
 	assert.IsType(t, secp256k1.Commitment{}, *BPCommitment)
-	fmt.Printf("BPCommitment=%v\n", *BPCommitment)
+	fmt.Printf("BPCommitment = %s\n", BPCommitment.Hex(context))
 
 	scratch, err := secp256k1.ScratchSpaceCreate(context, 1024*1024)
 	assert.NoError(t, err)
@@ -371,7 +372,7 @@ func TestTxRangeproofVerify(t *testing.T) {
 
 	BPToBytes, err := hex.DecodeString(tx.Body.Outputs[0].Proof)
 	assert.NoError(t, err)
-	fmt.Printf("BPToBytes=%v\n", BPToBytes)
+	fmt.Printf("BPToBytes = %s\n", BPToBytes)
 
 	err = secp256k1.BulletproofRangeproofVerify(
 		context,
@@ -398,10 +399,10 @@ func reverseBytes(src []byte) []byte {
 	return dst
 }
 
-func TestTxVerify(t *testing.T) {
-	var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
-	defer secp256k1.ContextDestroy(context)
-	tx := ReadSlate(t, "1g_final.json").Transaction
+func TestTxVerify2(t *testing.T) {
+	//var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
+	//defer secp256k1.ContextDestroy(context)
+	//tx := ReadSlate(t, "1g_final.json").Transaction
 
 
 
