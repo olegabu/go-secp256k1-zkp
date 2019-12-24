@@ -340,7 +340,7 @@ func BulletproofRangeproofVerify(
 	generators *BulletproofGenerators,
 	proof []byte,
 	minvalue []uint64,
-	commit *Commitment,
+	commits []*Commitment,
 	nbits int,
 	valuegen *Generator,
 	extracommit []byte,
@@ -374,6 +374,12 @@ func BulletproofRangeproofVerify(
 		defer BulletproofGeneratorsDestroy(context, generators)
 	}
 
+	comarr := C.makeCommitmentsArray(C.int(len(commits)))
+	for i, c := range commits {
+		C.setCommitmentsArray(comarr, c.com, C.int(i))
+	}
+	defer C.freeCommitmentsArray(comarr)
+
 	status := int(
 		C.secp256k1_bulletproof_rangeproof_verify(
 			context.ctx,
@@ -382,8 +388,8 @@ func BulletproofRangeproofVerify(
 			cBuf(proof),
 			C.size_t(len(proof)),
 			u64Arr(minvalue),
-			commit.com,
-			C.size_t(1),
+			*comarr,
+			C.size_t(len(commits)),
 			C.size_t(nbits),
 			valuegen.gen,
 			cBuf(extracommit),
@@ -631,9 +637,14 @@ func BulletproofRangeproofProveSingle( // this version is for single participant
 	}
 	defer C.freeBytesArray(cblinds)
 
-	msg := make([]byte, BulletproofMsgSize)
-	for i := copy(msg, message); i < BulletproofMsgSize; i++ {
-		msg[i] = 0
+	var msg []byte = nil
+	var msgp *C.uchar = nil
+	if len(message) > 0 {
+		msg = make([]byte, BulletproofMsgSize)
+		for i := copy(msg, message); i < BulletproofMsgSize; i++ {
+			msg[i] = 0
+		}
+		msgp = cBuf(msg)
 	}
 
 	outproof := make([]C.uchar, BulletproofMaxSize)
@@ -666,8 +677,10 @@ func BulletproofRangeproofProveSingle( // this version is for single participant
 		cBuf(privatenonce),
 		cBuf(extra),
 		C.size_t(len(extra)),
-		cBuf(msg)))
+		msgp,
+	))
 	if status != 1 {
+
 		return nil, errors.New(ErrorBulletproofGeneration + " [" + strconv.Itoa(status) + "]")
 	}
 

@@ -23,7 +23,7 @@ func TestBulletproofSingle(t *testing.T) {
 
 	blinding, _ := AggsigGenerateSecureNonce(context, nil)
 	value := uint64(12345678)
-	//commit, _ := Commit(context, blinding[:], value, &GeneratorH, &GeneratorG)
+	commit, _ := Commit(context, blinding[:], value, &GeneratorH, &GeneratorG)
 
 	bulletproof, err := BulletproofRangeproofProveSingle(context, nil, nil, []uint64{value}, [][]byte{blinding[:]}, nil, &GeneratorH, 64, blinding[:], blinding[:], nil, nil)
 	//var msg [20]byte
@@ -32,7 +32,7 @@ func TestBulletproofSingle(t *testing.T) {
 	// var ttwo PublicKey
 	//bulletproof, _, _, _, err := BulletproofRangeproofProve(context, scratch, generators, taux, &tone, &ttwo, []uint64{value}, nil, [][32]byte{blinding}, []*Commitment{commit}, &GeneratorH, 64,	blinding, blinding, nil, msg)
 	assert.NoError(t, err)
-	bulletprooferr := BulletproofRangeproofVerify(context, nil, nil, bulletproof[:], nil, nil, 64, &GeneratorH, nil)
+	bulletprooferr := BulletproofRangeproofVerify(context, nil, nil, bulletproof[:], nil, []*Commitment{commit}, 64, &GeneratorH, nil)
 	assert.NoError(t, bulletprooferr)
 }
 
@@ -101,11 +101,11 @@ func TestBulletproofMain(t *testing.T) {
 
 	// ...
 
-	p, err := BulletproofRangeproofProveSingle(both, scratch, gens, value[:1], blind_ptr[:1], nil, value_gen, 64, blind, nil, blind, nil)
+	p, err := BulletproofRangeproofProveSingle(both, scratch, gens, value[:1], blind_ptr[:1], nil, value_gen, 64, blind, nil, nil, nil)
 	assert.NoError(t, err)
 
 	// rangeproof verify //
-	err = BulletproofRangeproofVerify(none, scratch, gens, p, minvalue[:1], commit[0], 64, value_gen, blind)
+	err = BulletproofRangeproofVerify(none, scratch, gens, p, minvalue[:1], commit[:1], 64, value_gen, nil)
 	assert.NoError(t, err)
 
 	return
