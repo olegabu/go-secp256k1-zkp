@@ -3,8 +3,9 @@ package secp256k1_test
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/olegabu/go-secp256k1-zkp"
 	"testing"
+
+	"github.com/olegabu/go-secp256k1-zkp"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -37,29 +38,25 @@ func TestGeneratorAPI(t *testing.T) {
 	assert.Equal(t, keyLen, 32)
 	fmt.Printf("key=%v\n", key)
 
-	status, genNone, err := secp256k1.GeneratorGenerate(ctxNone, key)
-	assert.True(t, status == 1)
+	genNone, err := secp256k1.GeneratorGenerate(ctxNone, key[:])
 	assert.NoError(t, err)
 	assert.NotNil(t, genNone)
 	assert.IsType(t, secp256k1.Generator{}, *genNone)
 	fmt.Printf("genNone=%v\n", *genNone)
 
-	status, genSign, err := secp256k1.GeneratorGenerate(ctxSign, key)
-	assert.True(t, status == 1)
+	genSign, err := secp256k1.GeneratorGenerate(ctxSign, key[:])
 	assert.NoError(t, err)
 	assert.NotNil(t, genSign)
 	assert.IsType(t, secp256k1.Generator{}, *genSign)
 	fmt.Printf("genSign=%v\n", *genSign)
 
-	status, genVrfy, err := secp256k1.GeneratorGenerate(ctxVrfy, key)
-	assert.True(t, status == 1)
+	genVrfy, err := secp256k1.GeneratorGenerate(ctxVrfy, key[:])
 	assert.NoError(t, err)
 	assert.NotNil(t, genVrfy)
 	assert.IsType(t, secp256k1.Generator{}, *genVrfy)
 	fmt.Printf("genVrfy=%v\n", *genVrfy)
 
-	status, genBoth, err := secp256k1.GeneratorGenerate(ctxBoth, key)
-	assert.True(t, status == 1)
+	genBoth, err := secp256k1.GeneratorGenerate(ctxBoth, key[:])
 	assert.NoError(t, err)
 	assert.NotNil(t, genBoth)
 	assert.IsType(t, secp256k1.Generator{}, *genBoth)
@@ -71,21 +68,18 @@ func TestGeneratorAPI(t *testing.T) {
 	assert.Equal(t, blindLen, 32)
 	fmt.Printf("blind=%v\n", blind)
 
-	status, genSignBlinded, err := secp256k1.GeneratorGenerateBlinded(ctxSign, key, blind)
-	assert.True(t, status == 1)
+	genSignBlinded, err := secp256k1.GeneratorGenerateBlinded(ctxSign, key[:], blind[:])
 	assert.NoError(t, err)
 	assert.NotNil(t, genSignBlinded)
 	assert.IsType(t, secp256k1.Generator{}, *genSignBlinded)
 	fmt.Printf("genSignBlinded=%v\n", *genSignBlinded)
 
-	status, genSignBlindedSerialized, err := secp256k1.GeneratorSerialize(ctxSign, genSignBlinded)
-	assert.True(t, status == 1)
+	genSignBlindedSerialized, err := secp256k1.GeneratorSerialize(ctxSign, genSignBlinded)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, genSignBlindedSerialized)
 	fmt.Printf("genSignBlindedSerialized=%v\n", genSignBlindedSerialized)
 
-	status, genSignBlindedParsed, err := secp256k1.GeneratorParse(ctxSign, genSignBlindedSerialized)
-	assert.True(t, status == 1)
+	genSignBlindedParsed, err := secp256k1.GeneratorParse(ctxSign, genSignBlindedSerialized)
 	assert.NoError(t, err)
 	assert.NotNil(t, genSignBlindedParsed)
 	assert.IsType(t, secp256k1.Generator{}, *genSignBlindedParsed)

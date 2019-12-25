@@ -25,8 +25,10 @@ type Generator struct {
 }
 
 const (
-	ErrorGeneratorKeySize string = "Generator input data length should be 33 bytes"
-	ErrorGeneratorParse   string = "Unable to parse this data as a generator"
+	ErrorGeneratorKeySize   string = "Generator input data length should be 33 bytes"
+	ErrorGeneratorParse     string = "Unable to parse this data as a generator"
+	ErrorGeneratorSerialize string = "Unable to serialize the generator"
+	ErrorGeneratorGenerate  string = "GeneratorGenerate error"
 )
 
 var (
@@ -49,10 +51,10 @@ func newGenerator() *Generator {
 /// In:   data:    pointer to a 33-byte serialized data
 /// Out:  status, Generator, error
 
-func GeneratorParse(context *Context, data []byte) (int, *Generator, error) {
+func GeneratorParse(context *Context, data []byte) (*Generator, error) {
 	l := len(data)
 	if l != LenCompressed {
-		return 0, nil, errors.New(ErrorGeneratorKeySize)
+		return nil, errors.New(ErrorGeneratorKeySize)
 	}
 	generator := newGenerator()
 	status := int(
@@ -61,9 +63,9 @@ func GeneratorParse(context *Context, data []byte) (int, *Generator, error) {
 			generator.gen,
 			cBuf(data)))
 	if status != 1 {
-		return status, nil, errors.New(ErrorGeneratorParse)
+		return nil, errors.New(ErrorGeneratorParse)
 	}
-	return status, generator, nil
+	return generator, nil
 }
 
 // Serialize a 33-byte generator into a serialized byte sequence.
@@ -73,14 +75,16 @@ func GeneratorParse(context *Context, data []byte) (int, *Generator, error) {
 //  In:     Generator   a generator object
 //  Out:    status, data, error:     a pointer to a 33-byte byte array
 //
-func GeneratorSerialize(context *Context, generator *Generator) (int, []byte, error) {
+func GeneratorSerialize(context *Context, generator *Generator) ([]byte, error) {
 	output := make([]C.uchar, 33)
-	status := int(
+	if 1 != int(
 		C.secp256k1_generator_serialize(
 			context.ctx,
 			&output[0],
-			generator.gen))
-	return status, goBytes(output, 33), nil
+			generator.gen)) {
+		return nil, errors.New(ErrorGeneratorSerialize)
+	}
+	return goBytes(output, 33), nil
 }
 
 // Generate a generator for the curve.
@@ -96,14 +100,18 @@ func GeneratorSerialize(context *Context, generator *Generator) (int, []byte, er
 //      known discrete logarithm with respect to any other generator produced,
 //      or to the base generator G.
 //
-func GeneratorGenerate(ctx *Context, seed [32]byte) (int, *Generator, error) {
+func GeneratorGenerate(ctx *Context, seed []byte) (*Generator, error) {
 	generator := newGenerator()
-	status := int(
-		C.secp256k1_generator_generate(
-			ctx.ctx,
-			generator.gen,
-			cBuf(seed[:])))
-	return status, generator, nil
+	
+	if 1 != C.secp256k1_generator_generate(
+		ctx.ctx,
+		generator.gen,
+		cBuf(seed)) {
+
+		return nil, errors.New(ErrorGeneratorGenerate)
+	}
+
+	return generator, nil
 }
 
 // Generate a blinded generator for the curve.
@@ -113,19 +121,21 @@ func GeneratorGenerate(ctx *Context, seed [32]byte) (int, *Generator, error) {
 //      Args: ctx:     a secp256k1 context object, initialized for signing
 //      Out:  gen:     a generator object
 //      In:   seed32:  a 32-byte seed
-//            blind32: a 32-byte secret value to blind the generator with.
+//            blind32: a 32-byte secret value to blind the genesizeofrator with.
 //
-//      The result is equivalent to first calling secp256k1_generator_generate,
+//      The result is equivalent to first calling secp256k1_gensizeoferator_generate,
 //      converting the result to a public key, calling secp256k1_ec_pubkey_tweak_add,
-//      and then converting back to generator form.
+//      and then converting back to generator form.sizeof
 //
-func GeneratorGenerateBlinded(ctx *Context, seed [32]byte, blind [32]byte) (int, *Generator, error) {
+func GeneratorGenerateBlinded(ctx *Context, seed []byte, blind []byte) (*Generator, error) {
 	generator := newGenerator()
-	status := int(
+	if 1 != int(
 		C.secp256k1_generator_generate_blinded(
 			ctx.ctx,
 			generator.gen,
-			cBuf(seed[:]),
-			cBuf(blind[:])))
-	return status, generator, nil
+			cBuf(seed),
+			cBuf(blind))) {
+		return nil, errors.New(ErrorGeneratorGenerate)
+	}
+	return generator, nil
 }

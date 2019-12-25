@@ -10,41 +10,22 @@ package secp256k1
 #cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 #include <stdlib.h>
 #include "include/secp256k1_bulletproofs.h"
-static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) {
-    return calloc(sizeof(secp256k1_pedersen_commitment*), size);
-}
-static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) {
-    a[i] = v;
-}
-static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) {
-    free(a);
-}
-static size_t* makeSizeArray(int size) {
-    return calloc(sizeof(size_t), size);
-}
-static void setSizeArray(size_t* a, size_t v, int i) {
-    a[i] = v;
-}
-static void freeSizeArray(size_t* a) {
-    free(a);
-}
-static unsigned char** makeByteArray(int size) {
-    return calloc(sizeof(unsigned char*), size);
-}
-static void setByteArray(unsigned char** a, unsigned char* v, int i) {
-    a[i] = v;
-}
-static unsigned char* getByteArray(unsigned char** a, int i) {
-    return a[i];
-}
-static void freeByteArray(unsigned char** a) {
-    free(a);
-}
+static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) { return !size ? NULL : calloc(sizeof(secp256k1_pedersen_commitment*), size); }
+static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) { if (a) a[i] = v; }
+static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) { if (a) free(a); }
+static size_t* makeSizeArray(int size) { return !size ? NULL : calloc(sizeof(size_t), size); }
+static void setSizeArray(size_t* a, size_t v, int i) { if (a) a[i] = v; }
+static void freeSizeArray(size_t* a) { if (a) free(a); }
+static const unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
+static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
+static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
+static void freeBytesArray(unsigned char** a) { if (a) free(a); }
 */
 import "C"
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"unsafe"
 )
 
@@ -72,10 +53,9 @@ const (
 	BulletproofMsgSize = 20
 
 	// Error types */
-	ErrorBulletproofCount               string = "Number of elements differ in input arrays"
-	ErrorBulletproofKeySize             string = "Generator input data length should be 33 bytes"
-	ErrorBulletproofGenerationFailure   string = "Unable to parse this data as a generator"
-	ErrorBulletproofVerificationFailure string = "Unable to parse this data as a generator"
+	ErrorBulletproofParams       string = "invalid input parameters"
+	ErrorBulletproofVerification string = "bulletproof verification failed"
+	ErrorBulletproofGeneration   string = "bulletproof generation failed"
 )
 
 /**********************************************************
@@ -97,11 +77,14 @@ func newScratchSpace() *ScratchSpace {
 
 // Attempts to allocate a new stack frame with `n` available bytes. Returns 1 on success, 0 on failure
 // Returns a pointer into the most recently allocated frame, or NULL if there is insufficient available space
-func ScratchSpaceCreate(context *Context, max_size uint64) (*ScratchSpace, error) {
+func ScratchSpaceCreate(context *Context, maxsize uint64) (*ScratchSpace, error) {
 	scratch := newScratchSpace()
 	scratch.scr = C.secp256k1_scratch_space_create(
 		context.ctx,
-		C.size_t(max_size))
+		C.size_t(maxsize))
+	if scratch.scr == nil {
+		return nil, errors.New("failed to create scratch space")
+	}
 	return scratch, nil
 }
 
@@ -126,14 +109,26 @@ func ScratchSpaceDestroy(scratch *ScratchSpace) {
  */
 func BulletproofGeneratorsCreate(
 	context *Context,
-	blinding_gen *Generator,
+	blindinggen *Generator,
 	num int,
-) *BulletproofGenerators {
-	return &BulletproofGenerators{
+) (
+	*BulletproofGenerators,
+	error,
+) {
+	if context == nil || blindinggen == nil {
+		return nil, errors.New(ErrorBulletproofParams)
+	}
+
+	gens := &BulletproofGenerators{
 		gens: C.secp256k1_bulletproof_generators_create(
 			context.ctx,
-			blinding_gen.gen,
+			blindinggen.gen,
 			C.size_t(num))}
+
+	if gens.gens == nil {
+		return nil, errors.New(ErrorBulletproofParams)
+	}
+	return gens, nil
 }
 
 /** Destroys a list of NUMS generators, freeing allocated memory
@@ -147,6 +142,25 @@ func BulletproofGeneratorsDestroy(context *Context, generators *BulletproofGener
 		generators.gens)
 }
 
+var sharedGenerators map[*Context]*BulletproofGenerators
+
+func SharedGenerators(context *Context) (gens *BulletproofGenerators) {
+	gens, ok := sharedGenerators[context]
+	if ok {
+		return
+	}
+	gens, err := BulletproofGeneratorsCreate(context, &GeneratorG, 256)
+	if err != nil {
+		panic(nil)
+	}
+	sharedGenerators[context] = gens
+	return
+}
+
+func (context *Context) SharedGenerators() (gens *BulletproofGenerators) {
+	return SharedGenerators(context)
+}
+
 /*
     End of BulletproofGenerators section      **
 ***********************************************/
@@ -155,36 +169,183 @@ func BulletproofGeneratorsDestroy(context *Context, generators *BulletproofGener
 **  Begin of Bulletproof functions section
  */
 
+func BulletproofRangeproofProve(
+	context *Context,
+	scratch *ScratchSpace,
+	generators *BulletproofGenerators,
+	taux [32]byte,
+	tone *PublicKey,
+	ttwo *PublicKey,
+	value []uint64,
+	minvalue []uint64,
+	blind [][32]byte,
+	commits []*Commitment,
+	valuegen *Generator,
+	nbits int,
+	nonce [32]byte,
+	privatenonce [32]byte,
+	extracommit []byte,
+	message [20]byte,
+) (
+	proof []byte,
+	outaux [32]byte,
+	outone *PublicKey,
+	outtwo *PublicKey,
+	err error,
+) {
+	output := make([]C.uchar, BulletproofMaxSize)
+	outputlen := C.size_t(BulletproofMaxSize)
+
+	n := len(blind)
+	if n != len(value) || n != len(commits) {
+		err = errors.New(ErrorBulletproofParams)
+		return
+	}
+	bs := C.makeBytesArray(C.int(n))
+	cs := C.makeCommitmentsArray(C.int(n))
+	for i := 0; i < n; i++ {
+		C.setBytesArray(bs, cBuf(blind[i][:]), C.int(i))
+		C.setCommitmentsArray(cs, commits[i].com, C.int(i))
+	}
+	defer C.freeBytesArray(bs)
+	defer C.freeCommitmentsArray(cs)
+
+	msg := make([]byte, BulletproofMsgSize)
+	for i := copy(msg, message[:]); i < BulletproofMsgSize; i++ {
+		msg[i] = 0
+	}
+
+	status := int(
+		C.secp256k1_bulletproof_rangeproof_prove(
+			context.ctx,
+			scratch.scr,
+			generators.gens,
+			&output[0],
+			&outputlen,
+			cBuf(taux[:]),
+			tone.pk,
+			ttwo.pk,
+			u64Arr(value),
+			u64Arr(minvalue),
+			bs,
+			cs,
+			C.size_t(n),
+			valuegen.gen,
+			C.size_t(nbits),
+			cBuf(nonce[:]),
+			cBuf(privatenonce[:]),
+			cBuf(extracommit),
+			C.size_t(len(extracommit)),
+			cBuf(msg[:])))
+
+	proof = goBytes(output, C.int(outputlen))
+	outaux = taux
+	outone = tone
+	outtwo = ttwo
+
+	if status != 1 {
+		err = errors.New(ErrorBulletproofGeneration)
+	}
+
+	return
+}
+
 /** Verifies a single bulletproof (aggregate) rangeproof
  *      Inputs:
  *                context: pointer to a context object initialized for verification (cannot be NULL)
  *                scratch: scratch space with enough memory for verification (cannot be NULL)
- *                   gens: generator set with at least 2*nbits*n_commits many generators (cannot be NULL)
+ *             generators: generator set with at least 2*nbits*n_commits many generators (cannot be NULL)
  *                  proof: byte-serialized rangeproof (cannot be NULL)
- *                   plen: length of the proof
- *              min_value: array of minimum values to prove ranges above, or NULL for all-zeroes
- *                 commit: array of pedersen commitment that this rangeproof is over (cannot be NULL)
- *              n_commits: number of commitments in the above array (cannot be 0)
+ *              minvalues: array of minimum values to prove ranges above, or NULL for all-zeroes
+ *                commits: array of pedersen commitment that this rangeproof is over (cannot be NULL)
  *                  nbits: number of bits proven for each range
- *              value_gen: generator multiplied by value in pedersen commitments (cannot be NULL)
- *           extra_commit: additonal data committed to by the rangeproof (may be NULL if `extra_commit_len` is 0)
- *       extra_commit_len: length of additional data
+ *               valuegen: generator multiplied by value in pedersen commitments (cannot be NULL)
+ *            extracommit: additonal data committed to by the rangeproof (may be NULL if `extra_commit_len` is 0)
  *      Returns:
  *             true: rangeproof was valid
  *            false: rangeproof was invalid, or out of memory
  */
+// SECP256K1_WARN_UNUSED_RESULT SECP256K1_API int secp256k1_bulletproof_rangeproof_verify(
+// nn  const secp256k1_context* ctx,
+// nn  secp256k1_scratch_space* scratch,
+// nn  const secp256k1_bulletproof_generators *gens,
+// nn  const unsigned char* proof,
+//     size_t plen,
+//     const uint64_t* min_value,
+// nn  const secp256k1_pedersen_commitment* commit,
+//     size_t n_commits,
+//     size_t nbits,
+// nn  const secp256k1_generator* value_gen,
+//     const unsigned char* extra_commit,
+//     size_t extra_commit_len
+// ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(10)
+/*func BulletproofRangeproofVerify(
+	context *Context,
+	scratch *ScratchSpace,
+	generators *BulletproofGenerators,
+	proof []byte,
+	minvalues []uint64,
+	commits []*Commitment,
+	nbits int,
+	valuegen *Generator,
+	extracommit []byte,
+) (
+	err error,
+) {
+	if scratch == nil {
+		scratch, err = ScratchSpaceCreate(context, 1024*4096)
+		if err != nil {
+			return
+		}
+		defer ScratchSpaceDestroy(scratch)
+	}
+
+	if generators == nil {
+		generators, err = BulletproofGeneratorsCreate(context, &GeneratorG, 2*64*2)
+		if err != nil {
+			return
+		}
+		defer BulletproofGeneratorsDestroy(context, generators)
+	}
+
+	comcnt := len(commits)
+	comarr := C.makeCommitmentsArray(C.int(comcnt))
+	for i, c := range commits {
+		C.setCommitmentsArray(comarr, c.com, C.int(i))
+	}
+	defer C.freeCommitmentsArray(comarr)
+
+	if 1 != C.secp256k1_bulletproof_rangeproof_verify(
+		context.ctx,
+		scratch.scr,
+		generators.gens,
+		cBuf(proof),
+		C.size_t(len(proof)),
+		u64Arr(minvalues),
+		*comarr,
+		C.size_t(comcnt),
+		C.size_t(nbits),
+		valuegen.gen,
+		cBuf(extracommit),
+		C.size_t(len(extracommit))) {
+
+		return errors.New(ErrorBulletproofVerification)
+	}
+
+	return nil
+}*/
 func BulletproofRangeproofVerify(
 	context *Context,
 	scratch *ScratchSpace,
 	generators *BulletproofGenerators,
 	proof []byte,
 	minvalue []uint64,
-	commit *Commitment,
+	commits []*Commitment,
 	nbits int,
 	valuegen *Generator,
 	extracommit []byte,
 ) (
-	int, error,
+	err error,
 ) {
 	//comcnt := len(commit)
 	//valcnt := len(minvalue)
@@ -197,21 +358,48 @@ func BulletproofRangeproofVerify(
 	//}
 	//defer C.freeCommitmentsArray(comms)
 
-	return int(
-			C.secp256k1_bulletproof_rangeproof_verify(
-				context.ctx,
-				scratch.scr,
-				generators.gens,
-				cBuf(proof),
-				C.size_t(len(proof)),
-				u64Arr(minvalue),
-				commit.com,
-				C.size_t(1),
-				C.size_t(nbits),
-				valuegen.gen,
-				cBuf(extracommit),
-				C.size_t(len(extracommit)))),
-		nil
+	if scratch == nil {
+		scratch, err = ScratchSpaceCreate(context, 1024*4096)
+		if err != nil {
+			return
+		}
+		defer ScratchSpaceDestroy(scratch)
+	}
+
+	if generators == nil {
+		generators, err = BulletproofGeneratorsCreate(context, &GeneratorG, 256)
+		if err != nil {
+			return
+		}
+		defer BulletproofGeneratorsDestroy(context, generators)
+	}
+
+	comarr := C.makeCommitmentsArray(C.int(len(commits)))
+	for i, c := range commits {
+		C.setCommitmentsArray(comarr, c.com, C.int(i))
+	}
+	defer C.freeCommitmentsArray(comarr)
+
+	status := int(
+		C.secp256k1_bulletproof_rangeproof_verify(
+			context.ctx,
+			scratch.scr,
+			generators.gens,
+			cBuf(proof),
+			C.size_t(len(proof)),
+			u64Arr(minvalue),
+			*comarr,
+			C.size_t(len(commits)),
+			C.size_t(nbits),
+			valuegen.gen,
+			cBuf(extracommit),
+			C.size_t(len(extracommit))))
+	if status != 1 {
+
+		return errors.New("Bulletproof verification failed [" + strconv.Itoa(status) + "]")
+	}
+
+	return nil
 }
 
 /** Batch-verifies multiple bulletproof (aggregate) rangeproofs of the same size using same generator
@@ -231,7 +419,7 @@ func BulletproofRangeproofVerify(
  *     extra_commit: additonal data committed to by the rangeproof (may be NULL if `extra_commit_len` is 0)
  *     extra_commit_len: array of lengths of additional data
  */
-func BulletproofRangeproofVerifyMulti(
+func BulletproofRangeproofVerifyBatch(
 	context *Context,
 	scratch *ScratchSpace,
 	generators *BulletproofGenerators,
@@ -246,20 +434,20 @@ func BulletproofRangeproofVerifyMulti(
 ) {
 	var prfmax int
 	prfcnt := len(proof)
-	proofs := C.makeByteArray(C.int(prfcnt))
+	proofs := C.makeBytesArray(C.int(prfcnt))
 	for i := 0; i < prfcnt; i++ {
 		prflen := len(proof[i])
 		if prflen > prfmax {
 			prfmax = prflen
 		}
-		C.setByteArray(proofs, cBuf(proof[i]), C.int(i))
+		C.setBytesArray(proofs, cBuf(proof[i]), C.int(i))
 	}
-	defer C.freeByteArray(proofs)
+	defer C.freeBytesArray(proofs)
 
 	comcnt := len(commit)
 	valcnt := len(minvalue)
 	if comcnt != valcnt {
-		return 0, errors.New(ErrorBulletproofCount)
+		return 0, errors.New(ErrorBulletproofParams)
 	}
 	comms := C.makeCommitmentsArray(C.int(comcnt))
 	for i := 0; i < comcnt; i++ {
@@ -268,13 +456,13 @@ func BulletproofRangeproofVerifyMulti(
 	defer C.freeCommitmentsArray(comms)
 
 	extcnt := len(extracommit)
-	extras := C.makeByteArray(C.int(extcnt))
+	extras := C.makeBytesArray(C.int(extcnt))
 	extlen := make([]C.size_t, extcnt)
 	for i := 0; i < extcnt; i++ {
 		extlen[i] = C.size_t(len(extracommit[i]))
-		C.setByteArray(extras, cBuf(extracommit[i]), C.int(i))
+		C.setBytesArray(extras, cBuf(extracommit[i]), C.int(i))
 	}
-	defer C.freeByteArray(extras)
+	defer C.freeBytesArray(extras)
 	/*	// TODO
 		return int(
 		    C.secp256k1_bulletproof_rangeproof_verify_multi(
@@ -315,40 +503,212 @@ func sizetArr(goSlice []C.size_t) *C.size_t {
  * extra_commit_len: length of additional data
  *          message: optional 20 bytes of message to recover
  */
-func BulletproofRangeproofRewind(
+// func BulletproofRangeproofRewind(
+//	context *Context,
+//	proof []byte,
+//	minvalue uint64,
+//	commit *Commitment,
+//	valuegen *Generator,
+//	nonce [32]byte,
+//	extracommit []byte,
+//	message [20]byte,
+// ) (
+//	status int,
+//	value uint64,
+//	blind [32]byte,
+//	err error,
+// ) {
+//	var val, minval [2]C.ulong
+//	minval[0] = C.ulong(minvalue >> 32)
+//	minval[1] = C.ulong(minvalue & 0xffffffff)
+//	status = int(
+//		C.secp256k1_bulletproof_rangeproof_rewind(
+//			context.ctx,
+//			&val[0],
+//			cBuf(blind[:]),
+//			cBuf(proof),
+//			C.size_t(len(proof)),
+//			minval[0],
+//			commit.com,
+//			valuegen.gen,
+//			cBuf(nonce[:]),
+//			cBuf(extracommit),
+//			C.size_t(len(extracommit)),
+//			cBuf(message[:])))
+//	value = uint64(val[0]<<32 | val[1])
+//	return
+// }
+
+/** Produces an aggregate Bulletproof rangeproof for a set of Pedersen commitments
+*
+*  Args:
+*      ctx               pointer to a context object initialized for signing and verification (cannot be NULL)
+*      scratch           scratch space with enough memory for verification (cannot be NULL)
+*      gens              generator set with at least 2*nbits*n_commits many generators (cannot be NULL)
+*  Out:
+*      proof             byte-serialized rangeproof (cannot be NULL)
+*  In/out:
+*      plen              pointer to size of `proof`, to be replaced with actual length of proof (cannot be NULL)
+*      tau_x             only for multi-party; 32-byte, output in second step or input in final step
+*      t_one             only for multi-party; public key, output in first step or input for the others
+*      t_two             only for multi-party; public key, output in first step or input for the others
+*  In:
+*      value             array of values committed by the Pedersen commitments (cannot be NULL)
+*      min_value         array of minimum values to prove ranges above, or NULL for all-zeroes
+*      blind             array of blinding factors of the Pedersen commitments (cannot be NULL)
+*      commits           only for multi-party; array of pointers to commitments
+*      n_commits         number of entries in the `value` and `blind` arrays
+*      value_gen         generator multiplied by value in pedersen commitments (cannot be NULL)
+*      nbits             number of bits proven for each range
+*      nonce             random 32-byte seed used to derive blinding factors (cannot be NULL)
+*      private_nonce     only for multi-party; random 32-byte seed used to derive private blinding factors
+*      extra_commit      additonal data committed to by the rangeproof
+*      extra_commit_len  length of additional data
+*      message           optional 20 bytes of message that can be recovered by rewinding with the correct nonce
+*  Returns:
+*      1                 rangeproof was successfully created
+*      0                 rangeproof could not be created, or out of memory
+ */
+/*
+SECP256K1_WARN_UNUSED_RESULT SECP256K1_API int secp256k1_bulletproof_rangeproof_prove(
+    const secp256k1_context* ctx,
+    secp256k1_scratch_space* scratch,
+    const secp256k1_bulletproof_generators* gens,
+    unsigned char* proof,
+    size_t* plen,
+    unsigned char* tau_x,
+    secp256k1_pubkey* t_one,
+    secp256k1_pubkey* t_two,
+    const uint64_t* value,
+    const uint64_t* min_value,
+    const unsigned char* const* blind,
+    const secp256k1_pedersen_commitment* const* commits,
+    size_t n_commits,
+    const secp256k1_generator* value_gen,
+    size_t nbits,
+    const unsigned char* nonce,
+    const unsigned char* private_nonce,
+    const unsigned char* extra_commit,
+    size_t extra_commit_len,
+    const unsigned char* message
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(11) SECP256K1_ARG_NONNULL(14) SECP256K1_ARG_NONNULL(16);
+*/
+func BulletproofRangeproofProveSingle( // this version is for single participant only
 	context *Context,
-	proof []byte,
-	minvalue uint64,
-	commit *Commitment,
+	scratch *ScratchSpace,
+	generators *BulletproofGenerators,
+	values []uint64,
+	blinds [][]byte,
+	commits []*Commitment,
 	valuegen *Generator,
-	nonce [32]byte,
-	extracommit []byte,
-	message [20]byte,
+	nbits int,
+	rewindnonce []byte,
+	privatenonce []byte,
+	extra []byte,
+	message []byte,
 ) (
-	status int,
-	value uint64,
-	blind [32]byte,
+	proof []byte,
 	err error,
 ) {
-	var val, minval [2]C.ulong
-	minval[0] = C.ulong(minvalue >> 32)
-	minval[1] = C.ulong(minvalue & 0xffffffff)
-	status = int(
-		C.secp256k1_bulletproof_rangeproof_rewind(
-			context.ctx,
-			&val[0],
-			cBuf(blind[:]),
-			cBuf(proof),
-			C.size_t(len(proof)),
-			minval[0],
-			commit.com,
-			valuegen.gen,
-			cBuf(nonce[:]),
-			cBuf(extracommit),
-			C.size_t(len(extracommit)),
-			cBuf(message[:])))
-	value = uint64(val[0]<<32 | val[1])
-	return
+	if len(blinds) != len(values) {
+		err = errors.New(ErrorBulletproofParams)
+		return
+	}
+
+	if scratch == nil {
+		scratch, err = ScratchSpaceCreate(context, 1024*4096)
+		if err != nil {
+			return
+		}
+		defer ScratchSpaceDestroy(scratch)
+	}
+
+	if generators == nil {
+		generators, err = BulletproofGeneratorsCreate(context, &GeneratorG, 2*64*len(blinds))
+		if err != nil {
+			return
+		}
+		defer BulletproofGeneratorsDestroy(context, generators)
+	}
+
+	cblinds := C.makeBytesArray(C.int(len(blinds)))
+	for bi, bv := range blinds {
+		C.setBytesArray(cblinds, cBuf(bv[:]), C.int(bi))
+	}
+	defer C.freeBytesArray(cblinds)
+
+	var msg []byte = nil
+	var msgp *C.uchar = nil
+	if len(message) > 0 {
+		msg = make([]byte, BulletproofMsgSize)
+		for i := copy(msg, message); i < BulletproofMsgSize; i++ {
+			msg[i] = 0
+		}
+		msgp = cBuf(msg)
+	}
+
+	outproof := make([]C.uchar, BulletproofMaxSize)
+	outprooflen := C.size_t(BulletproofMaxSize)
+
+	comcnt := len(commits)
+	comarr := C.makeCommitmentsArray(C.int(comcnt))
+	for i, c := range commits {
+		C.setCommitmentsArray(comarr, c.com, C.int(i))
+	}
+	defer C.freeCommitmentsArray(comarr)
+
+	status := int(C.secp256k1_bulletproof_rangeproof_prove(
+		context.ctx,
+		scratch.scr,
+		generators.gens,
+		&outproof[0],
+		&outprooflen,
+		nil,
+		nil,
+		nil,
+		u64Arr(values),
+		nil,
+		cblinds,
+		comarr,
+		C.size_t(len(blinds)),
+		valuegen.gen,
+		C.size_t(nbits),
+		cBuf(rewindnonce),
+		cBuf(privatenonce),
+		cBuf(extra),
+		C.size_t(len(extra)),
+		msgp,
+	))
+	if status != 1 {
+
+		return nil, errors.New(ErrorBulletproofGeneration + " [" + strconv.Itoa(status) + "]")
+	}
+
+	/*
+		SECP256K1_WARN_UNUSED_RESULT SECP256K1_API int secp256k1_bulletproof_rangeproof_prove(
+		    const secp256k1_context* ctx,
+		    secp256k1_scratch_space* scratch,
+		    const secp256k1_bulletproof_generators* gens,
+		    unsigned char* proof,
+		    size_t* plen,
+		    unsigned char* tau_x,
+		    secp256k1_pubkey* t_one,
+		    secp256k1_pubkey* t_two,
+		    const uint64_t* value,
+		    const uint64_t* min_value,
+		    const unsigned char* const* blind,
+		    const secp256k1_pedersen_commitment* const* commits,
+		    size_t n_commits,
+		    const secp256k1_generator* value_gen,
+		    size_t nbits,
+		    const unsigned char* nonce,
+		    const unsigned char* private_nonce,
+		    const unsigned char* extra_commit,
+		    size_t extra_commit_len,
+		    const unsigned char* message
+		) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(11) SECP256K1_ARG_NONNULL(14) SECP256K1_ARG_NONNULL(16);
+	*/
+	return goBytes(outproof, C.int(outprooflen)), nil
 }
 
 /** Produces an aggregate Bulletproof rangeproof for a set of Pedersen commitments
@@ -381,41 +741,45 @@ func BulletproofRangeproofRewind(
 *      1                 rangeproof was successfully created
 *      0                 rangeproof could not be created, or out of memory
  */
-func BulletproofRangeproofProve( // this version is for single participant only
+func BulletproofRangeproofProveMulti( // this version is for multiple participants
 	context *Context,
 	scratch *ScratchSpace,
 	generators *BulletproofGenerators,
-	//	taux [32]byte,
-	//	tone *PublicKey,
-	//	ttwo *PublicKey,
+	taux [32]byte,
+	tone *PublicKey,
+	ttwo *PublicKey,
 	value []uint64,
-	blind [][]byte,
-	//	commits []*Commitment,
+	blind []*[32]byte,
+	commits []*Commitment,
 	valuegen *Generator,
+	nbits int,
 	nonce []byte,
-	//	privatenonce []byte,
+	privatenonce []byte,
 	extra []byte,
 	message []byte,
 ) (
 	proof []byte,
+	otaux []byte,
+	otone *PublicKey,
+	ottwo *PublicKey,
 	err error,
 ) {
 	if len(blind) != len(value) {
-		err = errors.New(ErrorBulletproofCount)
+		err = errors.New(ErrorBulletproofParams)
 		return
 	}
 
-	blinds := C.makeByteArray(C.int(len(blind)))
+	blinds := C.makeBytesArray(C.int(len(blind)))
 	for bi, bv := range blind {
-		C.setByteArray(blinds, cBuf(bv[:]), C.int(bi))
+		C.setBytesArray(blinds, cBuf(bv[:]), C.int(bi))
 	}
-	defer C.freeByteArray(blinds)
+	defer C.freeBytesArray(blinds)
 
-	//cs := C.makeCommitmentsArray(C.int(len(commits)))
-	//for ci, cv := range commits {
-	//	C.setCommitmentsArray(cs, cv.com, C.int(ci))
-	//}
-	//defer C.freeCommitmentsArray(cs)
+	cs := C.makeCommitmentsArray(C.int(len(commits)))
+	for ci, cv := range commits {
+		C.setCommitmentsArray(cs, cv.com, C.int(ci))
+	}
+	defer C.freeCommitmentsArray(cs)
 
 	msg := make([]byte, BulletproofMsgSize)
 	for i := copy(msg, message); i < BulletproofMsgSize; i++ {
@@ -431,46 +795,64 @@ func BulletproofRangeproofProve( // this version is for single participant only
 	}
 
 	if generators == nil {
-		generators = BulletproofGeneratorsCreate(context, &GeneratorH, 2*64*len(blind))
-		if generators == nil {
-			err = fmt.Errorf("Error creating generators for bulletproof calculation")
+		generators, err = BulletproofGeneratorsCreate(context, &GeneratorH, 2*64*len(blind))
+		if err != nil {
+			err = fmt.Errorf("error creating generators for bulletproof calculation")
 			return
 		}
 		defer BulletproofGeneratorsDestroy(context, generators)
 	}
 
+	ttaux := taux[:]
+
+	var ttone *C.secp256k1_pubkey
+	if tone != nil {
+		ttone = tone.pk
+	}
+
+	var tttwo *C.secp256k1_pubkey
+	if ttwo != nil {
+		tttwo = ttwo.pk
+	}
+
 	outproof := make([]C.uchar, BulletproofMaxSize)
 	outprooflen := C.size_t(BulletproofMaxSize)
 
-	if 1 != int(C.secp256k1_bulletproof_rangeproof_prove(
+	if 1 != C.secp256k1_bulletproof_rangeproof_prove(
 		context.ctx,
 		scratch.scr,
 		generators.gens,
 		&outproof[0],
 		&outprooflen,
-		nil,
-		nil,
-		nil,
+		cBuf(ttaux),
+		ttone,
+		tttwo,
 		u64Arr(value),
 		u64Arr(nil),
 		blinds,
-		nil,
+		cs,
 		C.size_t(len(blind)),
 		valuegen.gen,
-		C.size_t(64),
+		C.size_t(nbits),
 		cBuf(nonce),
-		nil,
+		cBuf(privatenonce),
 		cBuf(extra),
 		C.size_t(len(extra)),
-		cBuf(msg),
-	)) {
-		err = errors.New(ErrorBulletproofGenerationFailure)
+		cBuf(msg)) {
+
+		err = errors.New(ErrorBulletproofGeneration)
 		return
 	}
 
 	proof = goBytes(outproof, C.int(outprooflen))
+	otaux = ttaux
+	otone.pk = ttone
+	ottwo.pk = tttwo
+
 	return
-} /*
+}
+
+/*
                                                **
     End of Bulletproof section                **
 ***********************************************/

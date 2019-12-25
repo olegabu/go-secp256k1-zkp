@@ -6,16 +6,20 @@ package secp256k1
 #include "include/secp256k1.h"
 #include "include/secp256k1_ecdh.h"
 #include "include/secp256k1_recovery.h"
+#include "src/util.h"
+#include "src/hash_impl.h"
+#include "src/testrand_impl.h"
 static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
 */
 //#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
-//#cgo LDFLAGS: ${SRCDIR}/secp256k1-zkp/.libs/libsecp256k1.a -lgmp -v
+//#cgo LDFLAGS: ${SRCDIR}/secp256k1-zkp/.libs/libsecp256k1.a
 import "C"
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -121,6 +125,12 @@ func newEcdsaRecoverableSignature() *EcdsaRecoverableSignature {
 	return &EcdsaRecoverableSignature{
 		sig: &C.secp256k1_ecdsa_recoverable_signature{},
 	}
+}
+
+func init() {
+	seed := make([]byte, 16)
+	rand.Read(seed)
+	C.secp256k1_rand_seed(cBuf(seed))
 }
 
 // Begin bindings for secp256k1.h
@@ -521,15 +531,6 @@ func EcdsaRecover(ctx *Context, sig *EcdsaRecoverableSignature, msg32 []byte) (i
 	return result, recovered, nil
 }
 
-/** Generate a pseudorandom 32-byte array with long sequences of zero and one bits. */
-func Rand256(b [32]byte) (len int) {
-	len, err := rand.Read(b[:])
-	if err != nil {
-		len = 0
-	}
-	return
-}
-
 func cBuf(goSlice []byte) *C.uchar {
 	if goSlice == nil {
 		return nil
@@ -548,7 +549,7 @@ func goBytes(cSlice []C.uchar, size C.int) []byte {
 	return C.GoBytes(unsafe.Pointer(&cSlice[0]), size)
 }
 
-func Random256() [32]byte {
+/*func Random256() [32]byte {
 	s := make([]byte, 32)
 	l, err := rand.Read(s)
 
@@ -560,4 +561,32 @@ func Random256() [32]byte {
 	}
 
 	return r
+}*/
+
+// Generate a pseudorandom 32-byte array with long sequences of zero and one bits
+func Random256() (rnd32 [32]byte) {
+	//rnd32 = make([]byte, 32)
+	C.secp256k1_rand256(cBuf(rnd32[:]))
+	return
 }
+
+func (pubkey *PublicKey) Bytes(context *Context) (bytes []byte) {
+	_, bytes, _ = EcPubkeySerialize(context, pubkey, EcCompressed)
+	return
+}
+
+func (pubkey *PublicKey) BytesUncompressed(context *Context) (bytes []byte) {
+	_, bytes, _ = EcPubkeySerialize(context, pubkey, EcUncompressed)
+	return
+}
+
+func (pubkey *PublicKey) Hex(context *Context) string {
+	return hex.EncodeToString(pubkey.Bytes(context))
+}
+
+func (context *Context) PublicKeyFromHex(str string) (pubkey *PublicKey) {
+	bytes, _ := hex.DecodeString(str)
+	_, pubkey, _ = EcPubkeyParse(context, bytes)
+	return
+}
+

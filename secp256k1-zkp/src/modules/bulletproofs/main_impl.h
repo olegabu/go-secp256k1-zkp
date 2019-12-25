@@ -100,7 +100,7 @@ int secp256k1_bulletproof_rangeproof_verify(const secp256k1_context* ctx, secp25
     ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
 
     if (!secp256k1_scratch_allocate_frame(scratch, 2 * n_commits * sizeof(secp256k1_ge), 1)) {
-        return 0;
+        return -1;
     }
 
     commitp = (secp256k1_ge *)secp256k1_scratch_alloc(scratch, n_commits * sizeof(secp256k1_ge));
@@ -142,7 +142,7 @@ int secp256k1_bulletproof_rangeproof_verify_multi(const secp256k1_context* ctx, 
     ARG_CHECK(secp256k1_ecmult_context_is_built(&ctx->ecmult_ctx));
 
     if (!secp256k1_scratch_allocate_frame(scratch, n_proofs * (sizeof(*value_genp) + sizeof(*commitp) + n_commits * sizeof(**commitp)), 2 + n_proofs)) {
-        return 0;
+        return -2;
     }
 
     commitp = (secp256k1_ge **)secp256k1_scratch_alloc(scratch, n_proofs * sizeof(*commitp));
@@ -226,7 +226,7 @@ int secp256k1_bulletproof_rangeproof_prove(
     ARG_CHECK(secp256k1_ecmult_gen_context_is_built(&ctx->ecmult_gen_ctx));
 
     if (!secp256k1_scratch_allocate_frame(scratch, n_commits * (sizeof(*commitp) + sizeof(*blinds)), 2)) {
-        return 0;
+        return -3;
     }
     commitp = (secp256k1_ge *)secp256k1_scratch_alloc(scratch, n_commits * sizeof(*commitp));
     blinds = (secp256k1_scalar *)secp256k1_scratch_alloc(scratch, n_commits * sizeof(*blinds));
@@ -237,7 +237,7 @@ int secp256k1_bulletproof_rangeproof_prove(
         secp256k1_scalar_set_b32(&blinds[i], blind[i], &overflow);
         if (overflow || secp256k1_scalar_is_zero(&blinds[i])) {
             secp256k1_scratch_deallocate_frame(scratch);
-            return 0;
+            return -4;
         }
         
         if (commits == NULL) {
@@ -263,16 +263,16 @@ int secp256k1_bulletproof_rangeproof_prove(
         tge = malloc(2*sizeof(secp256k1_ge));
         if (tge == NULL){
             secp256k1_scratch_deallocate_frame(scratch);
-            return 0;
+            return -5;
         }
         if (tau_x != NULL) {
             if (!secp256k1_pubkey_load(ctx, &tge[0], t_one)) {
                 secp256k1_scratch_deallocate_frame(scratch);
-                return 0;
+                return -6;
             }
             if (!secp256k1_pubkey_load(ctx, &tge[1], t_two)) {
                 secp256k1_scratch_deallocate_frame(scratch);
-                return 0;
+                return -7;
             }
         }
     }
