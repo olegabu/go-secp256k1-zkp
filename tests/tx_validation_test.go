@@ -357,6 +357,7 @@ func TestTxRangeproofVerify(t *testing.T) {
 	tx := ReadSlate(t, "1g_final.json").Transaction
 
 	var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
+	defer secp256k1.ContextDestroy(context)
 
 	commitBytes, err := hex.DecodeString(tx.Body.Outputs[0].Commit)
 	BPCommitment, err := secp256k1.CommitmentParse(context, commitBytes)
@@ -384,10 +385,16 @@ func TestTxRangeproofVerify(t *testing.T) {
 		64,
 		&secp256k1.GeneratorH,
 		nil)
-
 	assert.NoError(t, err)
 
-	secp256k1.ContextDestroy(context)
+	err = secp256k1.BulletproofRangeproofVerifySingle(
+		context,
+		scratch,
+		bulletGenerators,
+		BPToBytes,
+		BPCommitment,
+		nil)
+	assert.NoError(t, err)
 }
 
 func reverseBytes(src []byte) []byte {
@@ -403,7 +410,5 @@ func TestTxVerify2(t *testing.T) {
 	//var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
 	//defer secp256k1.ContextDestroy(context)
 	//tx := ReadSlate(t, "1g_final.json").Transaction
-
-
 
 }

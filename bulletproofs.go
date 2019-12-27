@@ -407,7 +407,7 @@ func BulletproofRangeproofVerifySingle(
 	scratch *ScratchSpace,
 	generators *BulletproofGenerators,
 	proof []byte,
-	minvalue uint64,
+	//minvalue uint64,
 	commit *Commitment,
 	extra []byte,
 ) (
@@ -430,7 +430,7 @@ func BulletproofRangeproofVerifySingle(
 	}
 
 	//var minvaluec C.uint64_t = minvalue
-	minvaluecp := C.ulong(minvalue)
+	//minvaluecp := C.ulong(minvalue)
 
 	commitc := commit.com
 	//commitcp := &commitc
@@ -441,7 +441,7 @@ func BulletproofRangeproofVerifySingle(
 		generators.gens,
 		cBuf(proof),
 		C.size_t(len(proof)),
-		&minvaluecp,
+		nil,
 		commitc,
 		C.size_t(1),
 		C.size_t(64),

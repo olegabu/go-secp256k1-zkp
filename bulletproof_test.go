@@ -34,7 +34,10 @@ func TestBulletproofSingle(t *testing.T) {
 	assert.NoError(t, err)
 
 	//bulletproof, _, _, _, err := BulletproofRangeproofProve(context, scratch, generators, taux, &tone, &ttwo, []uint64{value}, nil, [][32]byte{blinding}, []*Commitment{commit}, &GeneratorH, 64,	blinding, blinding, nil, msg)
-	prooferr := BulletproofRangeproofVerifySingle(context, nil, nil, proof, 0, commit, nil)
+	prooferr := BulletproofRangeproofVerifySingle(context, nil, nil, append([]byte{1, 2, 3, 4}, proof[4:]...), commit, nil)
+	assert.Error(t, prooferr)
+
+	prooferr = BulletproofRangeproofVerifySingle(context, nil, nil, proof, commit, nil)
 	assert.NoError(t, prooferr)
 }
 
@@ -103,11 +106,11 @@ func TestBulletproofMain(t *testing.T) {
 	*/
 	// ...
 
-	p, err := BulletproofRangeproofProveSingle(both, nil, nil, value[0], blind_ptr[0], blind, nil, blind, nil)
+	p, err := BulletproofRangeproofProveSingle(both, nil, nil, value[0], blind_ptr[0], blind, nil, nil, nil)
 	assert.NoError(t, err)
 
 	// rangeproof verify //
-	err = BulletproofRangeproofVerifySingle(both, nil, nil, p, minvalue[0], commit[0], blind)
+	err = BulletproofRangeproofVerify(both, nil, nil, p, []uint64{minvalue[0]}, []*Commitment{commit[0]}, 64, &GeneratorH, nil)
 	assert.NoError(t, err)
 
 	return
@@ -181,58 +184,4 @@ CHECK(ecount == 3);
 plen = 2000;
 CHECK(secp256k1_bulletproof_rangeproof_prove(both, scratch, gens, proof, &plen, NULL, NULL, NULL, value, NULL, blind_ptr, NULL, 4, &value_gen, 64, blind, NULL, NULL, 0, NULL) == 0); // too few gens //
 CHECK(ecount == 4);
-*/
-
-/*
-func TestAggsigContext(t *testing.T) {
-	seed := Random256()
-	message := Random256()
-	seckey, seckey2 := Random256(), Random256()
-	_, pubkey, _ := EcPubkeyCreate(ctx, seckey[:])
-	_, pubkey2, _ := EcPubkeyCreate(ctx, seckey2[:])
-	_, pubkeys, _ := EcPubkeyCombine(ctx, []*PublicKey{pubkey, pubkey2})
-
-	sig, err := AggsigSignSingle(ctx, message[:], seckey[:], nil, nil, nil, nil, nil, seed[:])
-	assert.NoError(t, err)
-	assert.NotNil(t, sig)
-
-	sig2, err := AggsigSignSingle(ctx, message[:], seckey2[:], nil, nil, nil, nil, nil, seed[:])
-	assert.NoError(t, err)
-	assert.NotNil(t, sig)
-
-	sigs, err := AggsigAddSignaturesSingle(ctx, [][]byte{sig, sig2}, pubkeys)
-	assert.NoError(t, err)
-	assert.NotNil(t, sigs)
-
-	var noneg bool = true
-	ok, err := AggsigVerifySingle(ctx, sig, message[:], nil, pubkey, nil, nil, noneg)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-}
-
-func TestAggsigSignSingle(t *testing.T) {
-	seed := Random256()
-	message := Random256()
-	seckey, seckey2 := Random256(), Random256()
-	_, pubkey, _ := EcPubkeyCreate(ctx, seckey[:])
-	_, pubkey2, _ := EcPubkeyCreate(ctx, seckey2[:])
-	_, pubkeys, _ := EcPubkeyCombine(ctx, []*PublicKey{pubkey, pubkey2})
-
-	sig, err := AggsigSignSingle(ctx, message[:], seckey[:], nil, nil, nil, nil, nil, seed[:])
-	assert.NoError(t, err)
-	assert.NotNil(t, sig)
-
-	sig2, err := AggsigSignSingle(ctx, message[:], seckey2[:], nil, nil, nil, nil, nil, seed[:])
-	assert.NoError(t, err)
-	assert.NotNil(t, sig)
-
-	sigs, err := AggsigAddSignaturesSingle(ctx, [][]byte{sig, sig2}, pubkeys)
-	assert.NoError(t, err)
-	assert.NotNil(t, sigs)
-
-	var noneg bool = true
-	ok, err := AggsigVerifySingle(ctx, sig, message[:], nil, pubkey, nil, nil, noneg)
-	assert.True(t, ok)
-	assert.NoError(t, err)
-}
 */

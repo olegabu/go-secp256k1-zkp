@@ -56,7 +56,7 @@ var Space *secp256k1.ScratchSpace
 
 func setup() {
 	RepostData = Transaction{}
-	var Repost, _ = ioutil.ReadFile("200_repost.json")
+	var Repost, _ = ioutil.ReadFile("1g_grin_repost_fix_kernel.json")
 	json.Unmarshal(Repost, &RepostData)
 
 	Commits = TransactionCommits{}
