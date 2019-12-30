@@ -1,7 +1,8 @@
 # gather options for tests
 TESTARGS=$(TESTOPTIONS)
+PKGDIR=$(realpath .)/.deb/usr
 
-deps: clean deps-secp256k1-zkp
+deps: deps-secp256k1-zkp
 
 clean:
 		cd secp256k1-zkp/ && \
@@ -12,10 +13,13 @@ deps-secp256k1-zkp:
 
 		cd secp256k1-zkp && \
 		./autogen.sh && \
-		AR_FLAGS="cr" ./configure --enable-experimental --enable-module-ecdh --enable-module-recovery --enable-module-bulletproof --enable-module-rangeproof --enable-module-aggsig \
-		            --enable-module-commitment --enable-module-generator --enable-module-schnorrsig  --enable-module-whitelist  --enable-module-surjectionproof \
-					--enable-ecmult-static-precomputation --enable-tests --disable-benchmark --with-bignum=no --with-pic=yes && \
+		AR_FLAGS="cr" ./configure \
+		    --enable-experimental --enable-module-ecdh --enable-module-recovery --enable-module-bulletproof --enable-module-rangeproof --enable-module-aggsig \
+		    --enable-module-commitment --enable-module-generator --enable-module-schnorrsig  --enable-module-whitelist  --enable-module-surjectionproof \
+		    --enable-ecmult-static-precomputation --enable-tests --disable-benchmark --with-bignum=no --with-pic=yes \
+		    --prefix=$(PKGDIR) && \
 		make -j4 && \
+		make dist && \
 		cd ..
 
 deps-1:
