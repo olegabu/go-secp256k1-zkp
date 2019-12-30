@@ -402,6 +402,61 @@ func BulletproofRangeproofVerify(
 	return nil
 }
 
+func BulletproofRangeproofVerifySingle(
+	context *Context,
+	scratch *ScratchSpace,
+	generators *BulletproofGenerators,
+	proof []byte,
+	//minvalue uint64,
+	commit *Commitment,
+	extra []byte,
+) (
+	err error,
+) {
+	if scratch == nil {
+		scratch, err = ScratchSpaceCreate(context, 1024*4096)
+		if err != nil {
+			return
+		}
+		defer ScratchSpaceDestroy(scratch)
+	}
+
+	if generators == nil {
+		generators, err = BulletproofGeneratorsCreate(context, &GeneratorG, 256)
+		if err != nil {
+			return
+		}
+		defer BulletproofGeneratorsDestroy(context, generators)
+	}
+
+	//var minvaluec C.uint64_t = minvalue
+	//minvaluecp := C.ulong(minvalue)
+
+	commitc := commit.com
+	//commitcp := &commitc
+
+	status := int(C.secp256k1_bulletproof_rangeproof_verify(
+		context.ctx,
+		scratch.scr,
+		generators.gens,
+		cBuf(proof),
+		C.size_t(len(proof)),
+		nil,
+		commitc,
+		C.size_t(1),
+		C.size_t(64),
+		GeneratorH.gen,
+		cBuf(extra),
+		C.size_t(len(extra)),
+	))
+	if status != 1 {
+
+		return errors.New("Bulletproof verification failed [" + strconv.Itoa(status) + "]")
+	}
+
+	return nil
+}
+
 /** Batch-verifies multiple bulletproof (aggregate) rangeproofs of the same size using same generator
  *  Returns: 1: all rangeproofs were valid
  *           0: some rangeproof was invalid, or out of memory
@@ -593,15 +648,12 @@ SECP256K1_WARN_UNUSED_RESULT SECP256K1_API int secp256k1_bulletproof_rangeproof_
     const unsigned char* message
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(11) SECP256K1_ARG_NONNULL(14) SECP256K1_ARG_NONNULL(16);
 */
-func BulletproofRangeproofProveSingle( // this version is for single participant only
+func BulletproofRangeproofProveSingle( // this version is for single signer only
 	context *Context,
 	scratch *ScratchSpace,
 	generators *BulletproofGenerators,
-	values []uint64,
-	blinds [][]byte,
-	commits []*Commitment,
-	valuegen *Generator,
-	nbits int,
+	value uint64,
+	blind []byte,
 	rewindnonce []byte,
 	privatenonce []byte,
 	extra []byte,
@@ -610,11 +662,6 @@ func BulletproofRangeproofProveSingle( // this version is for single participant
 	proof []byte,
 	err error,
 ) {
-	if len(blinds) != len(values) {
-		err = errors.New(ErrorBulletproofParams)
-		return
-	}
-
 	if scratch == nil {
 		scratch, err = ScratchSpaceCreate(context, 1024*4096)
 		if err != nil {
@@ -624,18 +671,21 @@ func BulletproofRangeproofProveSingle( // this version is for single participant
 	}
 
 	if generators == nil {
-		generators, err = BulletproofGeneratorsCreate(context, &GeneratorG, 2*64*len(blinds))
+		generators, err = BulletproofGeneratorsCreate(context, &GeneratorG, 256)
 		if err != nil {
 			return
 		}
 		defer BulletproofGeneratorsDestroy(context, generators)
 	}
 
-	cblinds := C.makeBytesArray(C.int(len(blinds)))
-	for bi, bv := range blinds {
-		C.setBytesArray(cblinds, cBuf(bv[:]), C.int(bi))
+	blindc := C.makeBytesArray(C.int(len(blind)))
+	for bi, bv := range [][]byte{blind} {
+		C.setBytesArray(blindc, cBuf(bv[:]), C.int(bi))
 	}
-	defer C.freeBytesArray(cblinds)
+	defer C.freeBytesArray(blindc)
+
+	valuec := u64Arr([]uint64{value})
+	//valuecp := &valuec
 
 	var msg []byte = nil
 	var msgp *C.uchar = nil
@@ -650,12 +700,17 @@ func BulletproofRangeproofProveSingle( // this version is for single participant
 	outproof := make([]C.uchar, BulletproofMaxSize)
 	outprooflen := C.size_t(BulletproofMaxSize)
 
-	comcnt := len(commits)
-	comarr := C.makeCommitmentsArray(C.int(comcnt))
-	for i, c := range commits {
-		C.setCommitmentsArray(comarr, c.com, C.int(i))
-	}
-	defer C.freeCommitmentsArray(comarr)
+	// comcnt := len(commits)
+	// comarr := C.makeCommitmentsArray(C.int(comcnt))
+	// for i, c := range commits {
+	// 	C.setCommitmentsArray(comarr, c.com, C.int(i))
+	// }
+	// defer C.freeCommitmentsArray(comarr)
+
+	var tau_x *C.uchar = nil
+	var t_one *C.secp256k1_pubkey = nil
+	var t_two *C.secp256k1_pubkey = nil
+	//var commits *C.secp256k1_pedersen_commitment = nil
 
 	status := int(C.secp256k1_bulletproof_rangeproof_prove(
 		context.ctx,
@@ -663,16 +718,16 @@ func BulletproofRangeproofProveSingle( // this version is for single participant
 		generators.gens,
 		&outproof[0],
 		&outprooflen,
+		tau_x,
+		t_one,
+		t_two,
+		valuec,
 		nil,
+		blindc,
 		nil,
-		nil,
-		u64Arr(values),
-		nil,
-		cblinds,
-		comarr,
-		C.size_t(len(blinds)),
-		valuegen.gen,
-		C.size_t(nbits),
+		C.size_t(1),
+		GeneratorH.gen,
+		C.size_t(64),
 		cBuf(rewindnonce),
 		cBuf(privatenonce),
 		cBuf(extra),
@@ -680,7 +735,6 @@ func BulletproofRangeproofProveSingle( // this version is for single participant
 		msgp,
 	))
 	if status != 1 {
-
 		return nil, errors.New(ErrorBulletproofGeneration + " [" + strconv.Itoa(status) + "]")
 	}
 

@@ -1,4 +1,3 @@
-
 # gather options for tests
 TESTARGS=$(TESTOPTIONS)
 
@@ -18,6 +17,7 @@ deps-secp256k1-zkp:
 					--enable-ecmult-static-precomputation --enable-tests --disable-benchmark --with-bignum=no --with-pic=yes && \
 		make -j4 && \
 		cd ..
+
 deps-1:
 		cd secp256k1-zkp && \
 		make -j4 && \
