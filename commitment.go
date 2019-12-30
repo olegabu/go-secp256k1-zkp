@@ -75,7 +75,7 @@ func CommitmentParse(
 		commit.com,
 		cBuf(data33[:])) {
 
-		return nil, errors.New(ErrorCommitmentParse)
+		return nil, errors.New(ErrorCommitmentParse + " \"" + hex.EncodeToString(data33) + "\"")
 	}
 
 	return commit, nil
@@ -125,15 +125,6 @@ func (context *Context) CommitmentFromHex(str string) (com *Commitment, err erro
 	com, err = CommitmentParse(context, Unhex(str))
 	return
 }
-
-///** Initialize context for usage with Pedersen commitments.
-// *
-// *   In:
-// * 	     context:  context object to be iniitialized
-// */
-//func ContextInitialize(context *Context) {
-//	C.secp256k1_pedersen_context_initialize(context.ctx)
-//}
 
 /** Generate a commitment
  *

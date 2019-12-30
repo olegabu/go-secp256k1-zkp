@@ -1,0 +1,18 @@
+Homepage: https://github.com/olegabu/go-secp256k1-zkp/secp256k1
+Standards-Version: 3.9.2
+Package: libsecp256k1zkp-dev
+Source: libsecp256k1zkp
+Version: 0.1~20191230-1
+Architecture: amd64
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Original-Maintainer: AO <ao@ze1.org>
+Installed-Size: 205
+Depends: libsecp256k1-0 (= 0.1~20170810-2), libgmp-dev
+Section: libdevel
+Priority: optional
+Description: secp256k1-zkp crypto library
+ The library is based on the BitCoin's libsecp256k1 - an optimized C library for EC operations on curve secp256k1.
+ This package extends base lib with Zero Knowledge Proof functionality.
+ .
+ The package contains modules: schnorr's aggsig, pedersen commitment, rangeproof bulletproofs, generators.
+
