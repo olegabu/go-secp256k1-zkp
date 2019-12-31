@@ -233,8 +233,8 @@ func BlindCommit(
 //  size_t npositive  */
 func BlindSum(
 	context *Context,
-	posblinds [][32]byte,
-	negblinds [][32]byte,
+	posblinds [][]byte,
+	negblinds [][]byte,
 ) (
 	sum [32]byte,
 	err error,
@@ -244,10 +244,10 @@ func BlindSum(
 
 	blinds := C.makeBytesArray(C.int(ntotal))
 	for pi, pb := range posblinds {
-		C.setBytesArray(blinds, cBuf(pb[:]), C.int(pi))
+		C.setBytesArray(blinds, cBuf(pb), C.int(pi))
 	}
 	for ni, nb := range negblinds {
-		C.setBytesArray(blinds, cBuf(nb[:]), C.int(npositive+ni))
+		C.setBytesArray(blinds, cBuf(nb), C.int(npositive+ni))
 	}
 	defer C.freeBytesArray(blinds)
 

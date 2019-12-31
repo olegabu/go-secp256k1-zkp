@@ -57,7 +57,7 @@ var Space *secp256k1.ScratchSpace
 func setup() {
 	RepostData = Transaction{}
 	// var Repost, _ = ioutil.ReadFile("1g_grin_repost_fix_kernel.json")
-	Repost, err := ioutil.ReadFile("100mg_repost.json")
+	Repost, err := ioutil.ReadFile("recv_slate.json") //100mg_repost.json")
 	if err != nil {
 		return
 	}
@@ -142,19 +142,21 @@ func TestCommitsSumVerify(t *testing.T) {
 
 	// sum_commitments
 
-	comOverage, err := secp256k1.Commit(Context, blind[:], overage, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
-	assert.NoError(t, err)
-	assert.NotNil(t, comOverage)
-	assert.IsType(t, secp256k1.Commitment{}, *comOverage)
-	//fmt.Printf("comNone=%v\n", *comOverage)
 	temp_inputs := inputs
 	temp_outputs := outputs
+	if overage != 0 {
+		comOverage, err := secp256k1.Commit(Context, blind[:], overage, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
+		assert.NoError(t, err)
+		assert.NotNil(t, comOverage)
+		assert.IsType(t, secp256k1.Commitment{}, *comOverage)
+		// fmt.Printf("comNone=%v\n", *comOverage)
 
-	if overage < 0 {
-		temp_inputs = append(temp_inputs, comOverage)
-	} else if overage > 0 {
-		temp_outputs = append(temp_outputs, comOverage)
+		if overage < 0 {
+			temp_inputs = append(temp_inputs, comOverage)
+		} else if overage > 0 {
+			temp_outputs = append(temp_outputs, comOverage)
 
+		}
 	}
 
 	commitSumOverage, err := secp256k1.CommitSum(Context, temp_inputs, temp_outputs)

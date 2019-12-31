@@ -21,7 +21,9 @@ static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL
 static void freeBytesArray(unsigned char** a) { if (a) free(a); }
 */
 import "C"
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 const (
 	ErrorAggsigSize          string = "Signature data expected length is 64 bytes"
@@ -180,7 +182,7 @@ func AggsigGenerateSecureNonce(
 ) (
 	secnonce32 [32]byte,
 	err error,
-) {	
+) {
 	if seed32 == nil {
 		seed := Random256()
 		seed32 = seed[:]
@@ -192,6 +194,10 @@ func AggsigGenerateSecureNonce(
 
 		err = errors.New(ErrorAggsigGenSecNonce)
 	}
+
+	// sec, err := hex.DecodeString("0A00000000000000000000000000000000000000000000000000000000000000")
+	// copy(secnonce32[:], sec[:])
+
 	return
 }
 
