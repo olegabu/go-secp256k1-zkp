@@ -34,8 +34,7 @@ import (
  *  comparison, use appropriate serialize and parse functions.
  */
 type Commitment struct {
-	context *Context
-	com     *C.secp256k1_pedersen_commitment
+	com *C.secp256k1_pedersen_commitment
 }
 
 const (
@@ -48,10 +47,9 @@ const (
 	ErrorCommitmentBlindSum  string = "Failed to calculate sum of blinding factors"
 )
 
-func newCommitment(ctx *Context) *Commitment {
+func newCommitment() *Commitment {
 	return &Commitment{
-		context: ctx,
-		com:     &C.secp256k1_pedersen_commitment{},
+		com: &C.secp256k1_pedersen_commitment{},
 	}
 }
 
@@ -69,11 +67,11 @@ func CommitmentParse(
 	*Commitment,
 	error,
 ) {
-	commit := newCommitment(context)
+	commit := newCommitment()
 	if 1 != C.secp256k1_pedersen_commitment_parse(
 		context.ctx,
 		commit.com,
-		cBuf(data33[:])) {
+		cBuf(data33)) {
 
 		return nil, errors.New(ErrorCommitmentParse + " \"" + hex.EncodeToString(data33) + "\"")
 	}
@@ -86,34 +84,34 @@ func CommitmentParse(
  *  Returns: 1 always.
  *  Args:   ctx:        a secp256k1 context object.
  *  In:     Commitment   a commitment object
- *  Out:    serialized data: a pointer to a 33-byte byte array
+ *  Out:    serialized data: 33-byte byte array
  */
 func CommitmentSerialize(
 	context *Context,
 	commit *Commitment,
 ) (
-	data33 []byte,
+	data [33]byte,
 	err error,
 ) {
-	var data [33]C.uchar
 	if 1 != C.secp256k1_pedersen_commitment_serialize(
 		context.ctx,
-		&data[0],
+		cBuf(data[:]),
 		commit.com) {
 
-		return nil, errors.New(ErrorCommitmentSerialize)
+		err = errors.New(ErrorCommitmentSerialize)
 	}
-	data33 = goBytes(data[:33], 33)
-	return data33, nil
+	//data = goBytes(data[:33], 33)
+	return
 }
 
-func (commit *Commitment) Bytes(context *Context) (bytes []byte) {
+func (commit *Commitment) Bytes(context *Context) (bytes [33]byte) {
 	bytes, _ = CommitmentSerialize(context, commit)
 	return
 }
 
 func (commit *Commitment) Hex(context *Context) string {
-	return hex.EncodeToString(commit.Bytes(context))
+	bytes := commit.Bytes(context)
+	return hex.EncodeToString(bytes[:])
 }
 
 func Unhex(str string) (bytes []byte) {
@@ -162,7 +160,7 @@ func Commit(
 	valuegen *Generator,
 	blindgen *Generator,
 ) (*Commitment, error) {
-	commit := newCommitment(context)
+	commit := newCommitment()
 	if 1 != C.secp256k1_pedersen_commit(
 		context.ctx,
 		commit.com,
@@ -197,7 +195,7 @@ func BlindCommit(
 	valuegen *Generator,
 	blindgen *Generator,
 ) (*Commitment, error) {
-	commit := newCommitment(context)
+	commit := newCommitment()
 	if 1 != C.secp256k1_pedersen_blind_commit(
 		context.ctx,
 		commit.com,
@@ -292,7 +290,7 @@ func CommitSum(
 		C.setCommitmentsArray(negarr, nc.com, C.int(ni))
 	}
 
-	sum = newCommitment(context)
+	sum = newCommitment()
 	if 1 != C.secp256k1_pedersen_commit_sum(
 		context.ctx,
 		sum.com,
