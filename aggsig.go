@@ -23,6 +23,7 @@ typedef struct { unsigned char data[64]; } secp256k1_aggsig_signature;
 */
 import "C"
 import (
+	"encoding/hex"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -313,6 +314,29 @@ func AggsigSignatureSerialize(
 		(*C.secp256k1_ecdsa_signature)(unsafe.Pointer(&sig[0])))
 
 	return
+}
+
+func (aggsig *AggsigSignature) Bytes(context *Context) (bytes [64]byte) {
+	bytes = AggsigSignatureSerialize(context, aggsig)
+	return
+}
+
+func (aggsig *AggsigSignature) Hex(context *Context) string {
+	bytes := aggsig.Bytes(context)
+	return hex.EncodeToString(bytes[:])
+}
+
+func (context *Context) AggsigUnhex(str string) (sig *AggsigSignature, err error) {
+	sig, err = AggsigSignatureParse(context, Unhex(str))
+	return
+}
+
+func (context *Context) AggsigUnhexNE(str string) *AggsigSignature {
+	sig, err := context.AggsigUnhex(str)
+	if err != nil {
+		return nil
+	}
+	return sig
 }
 
 /** Generate a single-signer signature (or partial sig), without a stored context

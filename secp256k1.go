@@ -471,7 +471,7 @@ func EcdsaRecoverableSignatureParseCompact(ctx *Context, signature []byte, recid
 
 	sig := newEcdsaRecoverableSignature()
 	result := int(C.secp256k1_ecdsa_recoverable_signature_parse_compact(ctx.ctx, sig.sig,
-		(*C.uchar)(unsafe.Pointer(&signature[0])), (C.int(recid))))
+		(*C.uchar)(unsafe.Pointer(&signature[0])), C.int(recid)))
 
 	if result != 1 {
 		return result, nil, errors.New(ErrorRecoverableSigParse)
@@ -589,4 +589,3 @@ func (context *Context) PublicKeyFromHex(str string) (pubkey *PublicKey) {
 	_, pubkey, _ = EcPubkeyParse(context, bytes)
 	return
 }
-

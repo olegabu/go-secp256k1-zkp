@@ -41,7 +41,7 @@ func TestCommitmentAPI(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, comNone, comUnhex)
 
-	comParse, err := CommitmentParse(ctxNone, comSer)
+	comParse, err := CommitmentParse(ctxNone, comSer[:])
 	assert.NoError(t, err)
 	assert.NotNil(t, comParse)
 	fmt.Printf("comParse=%v\n", *comParse)
@@ -64,14 +64,14 @@ func TestCommitmentAPI(t *testing.T) {
 	assert.IsType(t, Commitment{}, *comBoth)
 	fmt.Printf("comBoth=%v\n", *comBoth)
 
-	var blindarr [1][32]byte = [1][32]byte{blind}
+	var blindarr [1][]byte = [1][]byte{blind[:]}
 	blindout, err := BlindSum(ctxNone, blindarr[:], nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, blindout)
 	fmt.Printf("blindout=%v\n", blindout)
 
-	//status, comSign2, err := Commit(ctxSign, blind, val, &secp256k1_generator_const_h, &secp256k1_generator_const_g)
-	//VerifyTally(none, &commit_ptr, 1, &commit_ptr, 1)
+	// status, comSign2, err := Commit(ctxSign, blind, val, &secp256k1_generator_const_h, &secp256k1_generator_const_g)
+	// VerifyTally(none, &commit_ptr, 1, &commit_ptr, 1)
 
 }
 

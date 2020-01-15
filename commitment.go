@@ -159,8 +159,11 @@ func Commit(
 	value uint64,
 	valuegen *Generator,
 	blindgen *Generator,
-) (*Commitment, error) {
-	commit := newCommitment()
+) (
+	commit *Commitment,
+	err error,
+) {
+	commit = newCommitment()
 	if 1 != C.secp256k1_pedersen_commit(
 		context.ctx,
 		commit.com,
@@ -169,9 +172,9 @@ func Commit(
 		valuegen.gen,
 		blindgen.gen) {
 
-		return nil, errors.New(ErrorCommitmentError)
+		return nil, errors.New("Error creating commitment")
 	}
-	return commit, nil
+	return
 }
 
 /** Generate a commitment from two blinding factors.
@@ -194,8 +197,11 @@ func BlindCommit(
 	value []byte,
 	valuegen *Generator,
 	blindgen *Generator,
-) (*Commitment, error) {
-	commit := newCommitment()
+) (
+	commit *Commitment,
+	err error,
+) {
+	commit = newCommitment()
 	if 1 != C.secp256k1_pedersen_blind_commit(
 		context.ctx,
 		commit.com,
@@ -204,7 +210,7 @@ func BlindCommit(
 		valuegen.gen,
 		blindgen.gen) {
 
-		return nil, errors.New(ErrorCommitmentError)
+		return nil, errors.New("error creating commitments from two blinds")
 	}
 	return commit, nil
 }
@@ -241,13 +247,15 @@ func BlindSum(
 	ntotal := npositive + len(negblinds)
 
 	blinds := C.makeBytesArray(C.int(ntotal))
+	defer C.freeBytesArray(blinds)
+
 	for pi, pb := range posblinds {
 		C.setBytesArray(blinds, cBuf(pb), C.int(pi))
 	}
+
 	for ni, nb := range negblinds {
 		C.setBytesArray(blinds, cBuf(nb), C.int(npositive+ni))
 	}
-	defer C.freeBytesArray(blinds)
 
 	if 1 != C.secp256k1_pedersen_blind_sum(
 		context.ctx,
@@ -256,7 +264,7 @@ func BlindSum(
 		C.size_t(C.int(ntotal)),
 		C.size_t(C.int(npositive))) {
 
-		err = errors.New(ErrorCommitmentBlindSum)
+		err = errors.New("error calculating sum of blinds")
 	}
 
 	return
@@ -284,6 +292,7 @@ func CommitSum(
 	for pi, pc := range poscommits {
 		C.setCommitmentsArray(posarr, pc.com, C.int(pi))
 	}
+
 	negarr := C.makeCommitmentsArray(C.int(len(negcommits)))
 	defer C.freeCommitmentsArray(negarr)
 	for ni, nc := range negcommits {
@@ -297,7 +306,7 @@ func CommitSum(
 		posarr, C.size_t(len(poscommits)),
 		negarr, C.size_t(len(negcommits))) {
 
-		err = errors.New(ErrorCommitmentError)
+		err = errors.New("error calculating sum of commitments")
 	}
 
 	return
@@ -323,12 +332,15 @@ func VerifyTally(
 	context *Context,
 	poscommits []*Commitment,
 	negcommits []*Commitment,
-) error {
+) (
+	err error,
+) {
 	posarr := C.makeCommitmentsArray(C.int(len(poscommits)))
 	defer C.freeCommitmentsArray(posarr)
 	for pi, pc := range poscommits {
 		C.setCommitmentsArray(posarr, pc.com, C.int(pi))
 	}
+
 	negarr := C.makeCommitmentsArray(C.int(len(negcommits)))
 	defer C.freeCommitmentsArray(negarr)
 	for ni, nc := range negcommits {
@@ -340,7 +352,7 @@ func VerifyTally(
 		posarr, C.size_t(len(poscommits)),
 		negarr, C.size_t(len(negcommits))) {
 
-		return errors.New(ErrorCommitmentError)
+		err = errors.New("commitments do not sum to zero or other error")
 	}
 
 	return nil

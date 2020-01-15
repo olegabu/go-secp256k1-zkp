@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/olegabu/go-mimblewimble/wallet"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/blake2b"
 
@@ -125,9 +126,13 @@ func ReadSlate(t *testing.T, filename string) *Slate {
 
 func TestTxVerify(t *testing.T) {
 
-	tx := ReadSlate(t, "1g_final.json").Transaction
+	sl := ReadSlate(t, "100mg_finalize.json")
+	tx := sl.Transaction
 
-	var context, _ = secp256k1.ContextCreate(secp256k1.ContextBoth)
+	context, _ := secp256k1.ContextCreate(secp256k1.ContextBoth)
+
+	kernelExcess, err := wallet.CalculateExcess(context, tx, sl.Transaction)
+
 
 	var inputs []*secp256k1.Commitment
 	for _, inputData := range tx.Body.Inputs {
@@ -159,7 +164,7 @@ func TestTxVerify(t *testing.T) {
 		outputs = append(outputs, commitment)
 	}
 
-	commitSum, err := secp256k1.CommitSum(context, inputs, outputs)
+	commitSum, err := secp256k1.CommitSum(context, outputs, inputs)
 	assert.NoError(t, err)
 	assert.NotNil(t, commitSum)
 	assert.IsType(t, secp256k1.Commitment{}, *commitSum)
@@ -172,7 +177,7 @@ func TestTxVerify(t *testing.T) {
 	commitSerialize, err := secp256k1.CommitmentSerialize(context, outputs[0])
 	assert.NoError(t, err)
 	assert.NotEmpty(t, commitSerialize)
-	fmt.Printf("commitSerialize=%v\n", commitSerialize)
+	fmt.Printf("commitSerialize=%s\n", hex.EncodeToString(commitSerialize))
 
 	// Verify kernel sums
 
@@ -187,7 +192,7 @@ func TestTxVerify(t *testing.T) {
 	comOverage, err := secp256k1.Commit(context, blind[:], overage, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
 	assert.NoError(t, err)
 	assert.NotNil(t, comOverage)
-	assert.IsType(t, secp256k1.Commitment{}, *comOverage)
+	assert.IsType(t, secp256k1.Commitment{}, comOverage)
 
 	fmt.Printf("comOverage=0x%s\n", comOverage.Hex(context))
 
@@ -206,27 +211,27 @@ func TestTxVerify(t *testing.T) {
 	fmt.Printf("commitSumOverage=0x%s\n", commitSumOverage.Hex(context))
 
 	// sum_kernel_excesses
-	offset_bytes, err := hex.DecodeString(tx.Offset)
-	excess_bytes, err := hex.DecodeString(tx.Body.Kernels[0].Excess)
+	offsetBytes, err := hex.DecodeString(tx.Offset)
+	excessBytes, err := hex.DecodeString(tx.Body.Kernels[0].Excess)
 
-	var offset_32 [32]byte
+	// var offset32 [32]byte
 
-	copy(offset_32[:], offset_bytes[:32])
+	// copy(offset32[:], offsetBytes[:32])
 
-	commit_offset, err := secp256k1.Commit(context, offset_32[:], 0, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
+	commitOffset, err := secp256k1.Commit(context, offsetBytes[:], 0, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
 	assert.NoError(t, err)
-	assert.NotNil(t, commit_offset)
-	assert.IsType(t, secp256k1.Commitment{}, *commit_offset)
+	assert.NotNil(t, commitOffset)
+	assert.IsType(t, secp256k1.Commitment{}, commitOffset)
 
-	fmt.Printf("commit_offset=0x%s\n", commit_offset.Hex(context))
+	fmt.Printf("commit_offset=0x%s\n", commitOffset.Hex(context))
 
-	commit_excess, err := secp256k1.CommitmentParse(context, excess_bytes)
+	commitExcess, err := secp256k1.CommitmentParse(context, excessBytes)
 
-	commits_offset_excess := [2]*secp256k1.Commitment{commit_offset, commit_excess}
+	commitsOffsetExcess := []*secp256k1.Commitment{commitOffset, commitExcess}
 
-	empty_array := make([]*secp256k1.Commitment, 0)
+	emptyArray := make([]*secp256k1.Commitment, 0)
 
-	commitSumOffsetExcess, err := secp256k1.CommitSum(context, empty_array, commits_offset_excess[:])
+	commitSumOffsetExcess, err := secp256k1.CommitSum(context, emptyArray, commitsOffsetExcess[:])
 
 	serializeSumOffsetExcess, err := secp256k1.CommitmentSerialize(context, commitSumOffsetExcess)
 
@@ -265,10 +270,12 @@ func TestTxSigVerify(t *testing.T) {
 	excsighex := tx.Body.Kernels[0].ExcessSig
 	excsigbytes, err := hex.DecodeString(excsighex)
 	assert.NoError(t, err)
+	excsig, err := secp256k1.AggsigSignatureParse(context, excsigbytes)
+	assert.NoError(t, err)
 	assert.Equal(t, excsighex, hex.EncodeToString(excsigbytes))
 	fmt.Printf("excsigbytes=%s\n", excsighex)
 
-	schsig, err := secp256k1.SchnorrsigParse(context, excsigbytes)
+	schsig, err := secp256k1.AggsigSignatureParse(context, excsigbytes)
 	assert.NoError(t, err)
 	assert.NotNil(t, schsig)
 
@@ -328,7 +335,7 @@ func TestTxSigVerify(t *testing.T) {
 
 	err = secp256k1.AggsigVerifySingle(
 		context,
-		excsigbytes,
+		excsig,
 		msg,
 		nil,
 		pubkey,
