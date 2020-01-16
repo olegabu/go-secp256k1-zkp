@@ -28,7 +28,7 @@ func testingRand(n int) []byte {
 
 func TestRand256(t *testing.T) {
 
-	var rnd [2][32]byte = [2][32]byte{Random256(), Random256()}
+	rnd := [2][32]byte{Random256(), Random256()}
 	fmt.Printf("Random256(): %x\nRandom256(): %x\n", rnd[0], rnd[1])
 	assert.NotEmpty(t, rnd[0][:])
 	assert.NotEmpty(t, rnd[1][:])

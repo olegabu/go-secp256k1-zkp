@@ -177,7 +177,7 @@ func TestTxVerify(t *testing.T) {
 	commitSerialize, err := secp256k1.CommitmentSerialize(context, outputs[0])
 	assert.NoError(t, err)
 	assert.NotEmpty(t, commitSerialize)
-	fmt.Printf("commitSerialize=%s\n", hex.EncodeToString(commitSerialize))
+	fmt.Printf("commitSerialize=%s\n", hex.EncodeToString(commitSerialize[:]))
 
 	// Verify kernel sums
 

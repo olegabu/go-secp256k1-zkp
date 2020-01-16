@@ -263,7 +263,7 @@ type AggsigPartialSignature struct {
 	sig *C.secp256k1_aggsig_partial_signature
 }
 
-func newAggsigPartialSignature(ctx *Context) *AggsigPartialSignature {
+func newAggsigPartialSignature() *AggsigPartialSignature {
 	return &AggsigPartialSignature{
 		sig: &C.secp256k1_aggsig_partial_signature{},
 	}
@@ -431,7 +431,7 @@ func AggsigPartialSign(
 	partsig *AggsigPartialSignature,
 	err error,
 ) {
-	partsig = newAggsigPartialSignature(context)
+	partsig = newAggsigPartialSignature()
 	if 1 != C.secp256k1_aggsig_partial_sign(
 		context.ctx,
 		aggsigcontext.ctx,

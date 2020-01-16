@@ -159,7 +159,7 @@ func TestCommitsSumVerify(t *testing.T) {
 		}
 	}
 
-	commitSumOverage, err := secp256k1.CommitSum(Context, temp_inputs, temp_outputs)
+	commitSumOverage, err := secp256k1.CommitSum(Context, temp_outputs, temp_inputs)
 	assert.NoError(t, err)
 	assert.NotNil(t, commitSumOverage)
 	assert.IsType(t, secp256k1.Commitment{}, commitSumOverage)

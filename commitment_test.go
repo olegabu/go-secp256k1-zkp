@@ -64,7 +64,7 @@ func TestCommitmentAPI(t *testing.T) {
 	assert.IsType(t, Commitment{}, *comBoth)
 	fmt.Printf("comBoth=%v\n", *comBoth)
 
-	var blindarr [1][]byte = [1][]byte{blind[:]}
+	blindarr := [1][]byte{blind[:]}
 	blindout, err := BlindSum(ctxNone, blindarr[:], nil)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, blindout)
