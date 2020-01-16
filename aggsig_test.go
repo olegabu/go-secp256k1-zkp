@@ -16,7 +16,7 @@ func init() {
 	}
 }
 
-func TestAggsigContext(t *testing.T) {
+func testAggsigContext(t *testing.T) {
 
 	message := Random256()
 	seckey, seckey2 := Random256(), Random256()
@@ -24,11 +24,11 @@ func TestAggsigContext(t *testing.T) {
 	_, pubkey2, _ := EcPubkeyCreate(ctx, seckey2[:])
 	_, pubkeys, _ := EcPubkeyCombine(ctx, []*PublicKey{pubkey, pubkey2})
 
-	sig, err := AggsigSignPartial(ctx, message[:], seckey[:], nil, nil, nil)
+	sig, err := AggsigSignPartial(ctx, message[:], seckey[:], nil, nil, message[:])
 	assert.NoError(t, err)
 	assert.NotNil(t, sig)
 
-	sig2, err := AggsigSignPartial(ctx, message[:], seckey2[:], nil, nil, nil)
+	sig2, err := AggsigSignPartial(ctx, message[:], seckey2[:], nil, nil, message[:])
 	assert.NoError(t, err)
 	assert.NotNil(t, sig)
 
@@ -40,7 +40,7 @@ func TestAggsigContext(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestAggsigGrin(t *testing.T) {
+func testAggsigGrin(t *testing.T) {
 
 	// Context objs
 	sign, _ := ContextCreate(ContextSign)

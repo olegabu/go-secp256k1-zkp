@@ -670,27 +670,9 @@ func AggsigSignPartial(
 	err error,
 ) {
 	// Calculate signature using message M=fee, nonce in e=nonce_sum
-	/*
-		sig = newAggsigSignaturePartial()
-		sig, err = AggsigSignSingle(
-			context,
-			msg,
-			secBlind,
-			secNonce,
-			nil,
-			nil, //pubNonceSum,
-			nil, //pubNonceSum,
-			nil, //pubBlindSum,
-			nil,
-		)
-		return
-	*/
-
 	seed := Random256()
-
 	if 1 != C.secp256k1_aggsig_sign_single(
 		context.ctx,
-		//(*C.uchar)(unsafe.Pointer(sig[0])),
 		&sig[0],
 		cBuf(msg),
 		cBuf(secBlind),
@@ -712,9 +694,12 @@ func AggsigVerifyPartial(
 	pubNonceSum *PublicKey,
 	pubBlind *PublicKey,
 	pubBlindSum *PublicKey,
-	msg []byte) error {
+	msg []byte,
+) (
+	err error,
+) {
 
-	res := C.secp256k1_aggsig_verify_single(
+	if 1 != C.secp256k1_aggsig_verify_single(
 		context.ctx,
 		&sig[0],
 		cBuf(msg),
@@ -722,11 +707,11 @@ func AggsigVerifyPartial(
 		pk(pubBlind),
 		pk(pubBlindSum),
 		nil,
-		1)
-	if res != 1 {
-		return errors.New(ErrorAggsigVerify + " [" + string(res) + "]")
+		1) {
+
+		err =  errors.New(ErrorAggsigVerify)
 	}
-	return nil
+	return
 }
 
 func pk(key *PublicKey) *C.secp256k1_pubkey {
