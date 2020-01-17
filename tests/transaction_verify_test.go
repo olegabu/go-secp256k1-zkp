@@ -57,7 +57,7 @@ var Space *secp256k1.ScratchSpace
 func setup() {
 	RepostData = Transaction{}
 	// var Repost, _ = ioutil.ReadFile("1g_grin_repost_fix_kernel.json")
-	Repost, err := ioutil.ReadFile("100mg_repost.json")
+	Repost, err := ioutil.ReadFile("1g_rep.json") //100mg_repost.json")
 	if err != nil {
 		return
 	}
@@ -117,7 +117,7 @@ func testCommitVerify(t *testing.T, commit string) *secp256k1.Commitment {
 func TestCommitsSumVerify(t *testing.T) {
 	inputs := Commits.TrueCommits.Inputs
 	outputs := Commits.TrueCommits.Outputs
-	commitSum, err := secp256k1.CommitSum(Context, inputs, outputs)
+	commitSum, err := secp256k1.CommitSum(Context, outputs, inputs)
 	assert.NoError(t, err)
 	assert.NotNil(t, commitSum)
 	assert.IsType(t, secp256k1.Commitment{}, *commitSum)
@@ -142,25 +142,27 @@ func TestCommitsSumVerify(t *testing.T) {
 
 	// sum_commitments
 
-	comOverage, err := secp256k1.Commit(Context, blind[:], overage, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
-	assert.NoError(t, err)
-	assert.NotNil(t, comOverage)
-	assert.IsType(t, secp256k1.Commitment{}, *comOverage)
-	//fmt.Printf("comNone=%v\n", *comOverage)
 	temp_inputs := inputs
 	temp_outputs := outputs
+	if overage != 0 {
+		comOverage, err := secp256k1.Commit(Context, blind[:], overage, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
+		assert.NoError(t, err)
+		assert.NotNil(t, comOverage)
+		assert.IsType(t, secp256k1.Commitment{}, &comOverage)
+		// fmt.Printf("comNone=%v\n", *comOverage)
 
-	if overage < 0 {
-		temp_inputs = append(temp_inputs, comOverage)
-	} else if overage > 0 {
-		temp_outputs = append(temp_outputs, comOverage)
+		if overage < 0 {
+			temp_inputs = append(temp_inputs, comOverage)
+		} else if overage > 0 {
+			temp_outputs = append(temp_outputs, comOverage)
 
+		}
 	}
 
-	commitSumOverage, err := secp256k1.CommitSum(Context, temp_inputs, temp_outputs)
+	commitSumOverage, err := secp256k1.CommitSum(Context, temp_outputs, temp_inputs)
 	assert.NoError(t, err)
 	assert.NotNil(t, commitSumOverage)
-	assert.IsType(t, secp256k1.Commitment{}, *commitSumOverage)
+	assert.IsType(t, secp256k1.Commitment{}, commitSumOverage)
 	//fmt.Printf("commitSumOverage=%v\n", commitSumOverage)
 
 	// sum_kernel_excesses
@@ -174,7 +176,7 @@ func TestCommitsSumVerify(t *testing.T) {
 	commit_offset, err := secp256k1.Commit(Context, offset_32[:], 0, &secp256k1.GeneratorH, &secp256k1.GeneratorG)
 	assert.NoError(t, err)
 	assert.NotNil(t, commit_offset)
-	assert.IsType(t, secp256k1.Commitment{}, *commit_offset)
+	assert.IsType(t, secp256k1.Commitment{}, commit_offset)
 	//fmt.Printf("commit_offset=%v\n", *commit_offset)
 
 	commit_excess, err := secp256k1.CommitmentParse(Context, excess_bytes)
@@ -246,6 +248,8 @@ func TestExcessSigVerify(t *testing.T) {
 	// Parse ExcessSig value
 	excesscSigBytes, err := hex.DecodeString(RepostData.Body.Kernels[0].ExcessSig)
 	assert.NoError(t, err)
+	excesscSig, err := secp256k1.AggsigSignatureParse(Context, excesscSigBytes)
+	assert.NoError(t, err)
 
 	excsigShnorr, err := secp256k1.SchnorrsigParse(Context, excesscSigBytes)
 	assert.NoError(t, err)
@@ -295,7 +299,7 @@ func TestExcessSigVerify(t *testing.T) {
 
 	err = secp256k1.AggsigVerifySingle(
 		Context,
-		excesscSigBytes,
+		excesscSig,
 		msg,
 		nil,
 		pubkey,
