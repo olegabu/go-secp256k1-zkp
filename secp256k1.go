@@ -16,6 +16,7 @@ package secp256k1
 #include "include/secp256k1_whitelist.h"
 #include "src/util.h"
 #include "src/hash_impl.h"
+#include "src/num_impl.h"
 #include "src/testrand_impl.h"
 #include "src/secp256k1.c"
 static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
