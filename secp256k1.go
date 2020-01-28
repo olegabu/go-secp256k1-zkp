@@ -3,24 +3,17 @@ package secp256k1
 /*
 #include <stdlib.h>
 #include <stdint.h>
-#include "include/secp256k1.h"
-#include "include/secp256k1_ecdh.h"
-#include "include/secp256k1_recovery.h"
-#include "include/secp256k1_aggsig.h"
-#include "include/secp256k1_bulletproofs.h"
-#include "include/secp256k1_commitment.h"
-#include "include/secp256k1_generator.h"
-#include "include/secp256k1_rangeproof.h"
-#include "include/secp256k1_schnorrsig.h"
-#include "include/secp256k1_surjectionproof.h"
-#include "include/secp256k1_whitelist.h"
+
+// new
+#include "./secp256k1-zkp/src/secp256k1.c"
+#include "./secp256k1-zkp/src/modules/recovery/main_impl.h"
+
+
+//#include "include/secp256k1_ecdh.h"
+//#include "include/secp256k1_recovery.h"
 #include "src/util.h"
 #include "src/hash_impl.h"
-#include "src/num_impl.h"
-#include "src/scalar_impl.h"
 #include "src/testrand_impl.h"
-#include "src/field_impl.h"
-#include "src/secp256k1.c"
 static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
