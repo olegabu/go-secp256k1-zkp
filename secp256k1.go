@@ -4,7 +4,6 @@ package secp256k1
 #include <stdlib.h>
 #include <stdint.h>
 
-// new
 #define USE_BASIC_CONFIG 1
 #include "./secp256k1-zkp/src/basic-config.h"
 
@@ -20,10 +19,6 @@ package secp256k1
 #define ENABLE_MODULE_SURJECTIONPROOF 1
 
 #include "./secp256k1-zkp/src/secp256k1.c"
-
-#include "./secp256k1-zkp/src/modules/recovery/main_impl.h"
-#include "./secp256k1-zkp/src/modules/ecdh/main_impl.h"
-
 #include "src/util.h"
 #include "src/hash_impl.h"
 #include "src/testrand_impl.h"
