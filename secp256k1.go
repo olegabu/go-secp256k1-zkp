@@ -11,8 +11,8 @@ package secp256k1
 #include "./secp256k1-zkp/src/modules/recovery/main_impl.h"
 
 
-//#include "include/secp256k1_ecdh.h"
-//#include "include/secp256k1_recovery.h"
+#include "include/secp256k1_ecdh.h"
+#include "include/secp256k1_recovery.h"
 #include "src/util.h"
 #include "src/hash_impl.h"
 #include "src/testrand_impl.h"
