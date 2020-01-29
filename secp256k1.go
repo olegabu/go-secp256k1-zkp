@@ -5,6 +5,7 @@ package secp256k1
 #include <stdint.h>
 
 // new
+#include "./secp256k1-zkp/src/basic_config.h"
 #include "./secp256k1-zkp/src/secp256k1.c"
 #include "./secp256k1-zkp/src/modules/recovery/main_impl.h"
 
@@ -18,7 +19,7 @@ static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp2
 static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
 */
-//#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
+////#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 ////#cgo LDFLAGS: ${SRCDIR}/secp256k1-zkp/.libs/libsecp256k1.a
 import "C"
 
