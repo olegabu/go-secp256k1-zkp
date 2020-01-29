@@ -22,7 +22,7 @@ static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
 */
 //#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 ////#cgo LDFLAGS: ${SRCDIR}/secp256k1-zkp/.libs/libsecp256k1.a
-//#cgo LDFLAGS: ${SRCDIR}/secp256k1-zkp/.libs -lsecp256k1
+//#cgo LDFLAGS: -L ${SRCDIR}/secp256k1-zkp/.libs -lsecp256k1
 import "C"
 
 import (
