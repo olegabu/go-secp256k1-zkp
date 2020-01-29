@@ -10,7 +10,7 @@ package secp256k1
 #include "./secp256k1-zkp/src/secp256k1.c"
 
 #include "./secp256k1-zkp/src/modules/recovery/main_impl.h"
-#include  "./secp256k1-zkp/include/secp256k1_recovery.h"
+#include  "./secp256k1-zkp/include/secp256k1_ecdh.h"
 
 #include "src/util.h"
 #include "src/hash_impl.h"
