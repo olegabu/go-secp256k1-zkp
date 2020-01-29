@@ -7,6 +7,7 @@ package secp256k1
 // new
 #define USE_BASIC_CONFIG 1
 #include "./secp256k1-zkp/src/basic-config.h"
+#define ENABLE_MODULE_AGGSIG 1
 
 #include "./secp256k1-zkp/src/secp256k1.c"
 
