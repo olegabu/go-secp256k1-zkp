@@ -8,10 +8,10 @@ package secp256k1
 #define USE_BASIC_CONFIG 1
 #include "./secp256k1-zkp/src/basic-config.h"
 #include "./secp256k1-zkp/src/secp256k1.c"
+#include "./secp256k1-zkp/src/modules/ecdh/main_impl.h" // "include/secp256k1_ecdh.h" is included here
 #include "./secp256k1-zkp/src/modules/recovery/main_impl.h" // "include/secp256k1_recovery.h" is included here
 
-
-#include "./secp256k1-zkp/include/secp256k1_ecdh.h"
+//#include "include/secp256k1_ecdh.h"
 //#include "include/secp256k1_recovery.h"
 #include "src/util.h"
 #include "src/hash_impl.h"
@@ -22,7 +22,6 @@ static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
 */
 //#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 ////#cgo LDFLAGS: ${SRCDIR}/secp256k1-zkp/.libs/libsecp256k1.a
-//#cgo LDFLAGS: -L ${SRCDIR}/secp256k1-zkp/.libs -lsecp256k1
 import "C"
 
 import (
