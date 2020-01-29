@@ -7,7 +7,17 @@ package secp256k1
 // new
 #define USE_BASIC_CONFIG 1
 #include "./secp256k1-zkp/src/basic-config.h"
+
+#define ENABLE_MODULE_ECDH 1
+#define ENABLE_MODULE_RECOVERY 1
+#define ENABLE_MODULE_GENERATOR 1
+#define ENABLE_MODULE_COMMITMENT 1
+#define ENABLE_MODULE_RANGEPROOF 1
+#define ENABLE_MODULE_BULLETPROOF 1
 #define ENABLE_MODULE_AGGSIG 1
+#define ENABLE_MODULE_SCHNORRSIG 1
+#define ENABLE_MODULE_WHITELIST 1
+#define ENABLE_MODULE_SURJECTIONPROOF 1
 
 #include "./secp256k1-zkp/src/secp256k1.c"
 
