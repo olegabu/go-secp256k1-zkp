@@ -5,6 +5,7 @@ package secp256k1
 #include <stdint.h>
 
 // new
+#define USE_BASIC_CONFIG 1
 #include "./secp256k1-zkp/src/basic-config.h"
 #include "./secp256k1-zkp/src/secp256k1.c"
 #include "./secp256k1-zkp/src/modules/recovery/main_impl.h"
