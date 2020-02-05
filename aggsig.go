@@ -5,10 +5,9 @@
  */
 package secp256k1
 
-//#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
-//#include "include/secp256k1_aggsig.h"
 /*
 #include <stdlib.h>
+#include "include/secp256k1_aggsig.h"
 static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
@@ -650,14 +649,13 @@ func AggsigVerify(
  *       pubkeys: array of public keys (cannot be NULL)
  *        n_keys: the number of public keys
  */
-//extern SECP256K1_API int secp256k1_aggsig_build_scratch_and_verify(
+// extern SECP256K1_API int secp256k1_aggsig_build_scratch_and_verify(
 //    const secp256k1_context* ctx,
 //    const unsigned char *sig64,
 //    const unsigned char *msg32,
 //    const secp256k1_pubkey *pubkeys,
 //    size_t n_pubkeys
-//) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_WARN_UNUSED_RESULT;
-
+// ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_WARN_UNUSED_RESULT;
 func AggsigSignPartial(
 	context *Context,
 	secBlind []byte,
@@ -709,7 +707,7 @@ func AggsigVerifyPartial(
 		nil,
 		1) {
 
-		err =  errors.New(ErrorAggsigVerify)
+		err = errors.New(ErrorAggsigVerify)
 	}
 	return
 }
