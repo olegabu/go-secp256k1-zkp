@@ -10,13 +10,13 @@ import (
 func TestSurjectionAPI(t *testing.T) {
 
 	var (
-		fixedInputTags     [10]FixedAssetTag
-		fixedOutputTag     FixedAssetTag
+		fixedInputTags [10]FixedAssetTag
+		//fixedOutputTag     FixedAssetTag
 		ephemeralInputTags [10]Generator
 		ephemeralOutputTag Generator
 		inputBlindingKeys  [10][32]byte
 		outputBlindingKey  [32]byte
-		serializedProof    [SurjectionProofSerializationBytesMax]byte
+		serializedProof    [SurjectionproofSerializationBytesMax]byte
 		serializedLen      int
 		proof              Surjectionproof
 		proofOnHeap        *Surjectionproof
@@ -43,35 +43,40 @@ func TestSurjectionAPI(t *testing.T) {
 
 	// generate test data
 	for i := 0; i < nInputs; i++ {
-		rnd32 := Random256()
-		asset, _ := FixedAssetTagParse(rnd32[:])
-		fixedInputTags[i] = *asset
-
-		inputBlindingKeys[i] = Random256()
-		tag, err := GeneratorGenerateBlinded(both, rnd32[:], inputBlindingKeys[i][:])
-		assert.NoError(t, err)
-		ephemeralInputTags[i] = *tag
+		assetId := Random256()
+		assetTag, _ := FixedAssetTagParse(assetId[:])
+		assetBlind := Random256()
+		assetGenerator, _ := GeneratorGenerateBlinded(both, assetTag.Slice(), assetBlind[:])
+		fixedInputTags[i] = *assetTag
+		inputBlindingKeys[i] = assetBlind
+		ephemeralInputTags[i] = *assetGenerator
 	}
 	outputBlindingKey = Random256()
-	bytes := fixedInputTags[0].Bytes()
-	asset, _ := FixedAssetTagParse(bytes[:])
-	fixedOutputTag = *asset
-	tag, err := GeneratorGenerateBlinded(both, sliceBytes32(fixedOutputTag.Bytes()), outputBlindingKey[:])
-	assert.NoError(t, err)
-	ephemeralOutputTag = *tag
+	tmp, _ := FixedAssetTagSerialize(&fixedInputTags[0])
+	outputAsset, _ := FixedAssetTagParse(tmp[:])
+	outputGenerator, _ := GeneratorGenerateBlinded(both, outputAsset.Slice(), outputBlindingKey[:])
+	// fixedOutputTag := *outputAsset
+	ephemeralOutputTag = *outputGenerator
 
+	var err error
 	fmt.Print(ephemeralOutputTag, serializedProof, serializedLen, proof, nIterations, inputIndex, eCount, sign, vrfy)
 
 	// check allocate_initialized
-	//nIterations, proofOnHeap, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 0, &fixedInputTags[0], 100, seed[:])
-	//assert.Error(t, err)
-	//assert.Nil(t, proofOnHeap)
+	nIterations, proofOnHeap, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 0, &fixedInputTags[0], 100, seed[:])
+	assert.Error(t, err)
+	assert.Nil(t, proofOnHeap)
 	nIterations, proofOnHeap, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 3, &fixedInputTags[0], 100, seed[:])
 	assert.NoError(t, err)
 	assert.NotNil(t, proofOnHeap)
 	SurjectionproofDestroy(proofOnHeap)
 	nIterations, proofOnHeap, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 3, &fixedInputTags[0], 100, seed[:])
 	assert.NoError(t, err)
+
+	nIterations, proofOnHeap, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 3, &fixedInputTags[0], 100, seed[:])
+	assert.NoError(t, err)
+	err = SurjectionproofGenerate(both, proofOnHeap, ephemeralInputTags[:], ephemeralOutputTag, 0, inputBlindingKeys[0][:], outputBlindingKey[:])
+	assert.NoError(t, err)
+
 	/*
 	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 100, seed) == 0);
 	   CHECK(proof_on_heap == 0);

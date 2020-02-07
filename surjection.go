@@ -12,10 +12,9 @@ package secp256k1
     #include <string.h>
     #include "./secp256k1-zkp/include/secp256k1_surjectionproof.h"
     static int surjectionproofSerializationBytes(int nInputs, int nUsedInputs) { return SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES(nInputs, nUsedInputs); }
-    static int surjectionproofSerializationBytesMax() { return SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX; }
-    static secp256k1_fixed_asset_tag** makeFixedAssetTagsArray(int size) { return !size ? NULL : calloc(sizeof(secp256k1_fixed_asset_tag*), size); }
-    static void setFixedAssetTagsArray(secp256k1_fixed_asset_tag** a, secp256k1_fixed_asset_tag* v, int i) { if (a) a[i] = v; }
-    static void freeFixedAssetTagsArray(secp256k1_fixed_asset_tag** a) { if (a) free(a); }
+    static secp256k1_fixed_asset_tag* makeFixedAssetTagsArray(int size) { return !size ? NULL : calloc(sizeof(secp256k1_fixed_asset_tag), size); }
+    static int setFixedAssetTagsArray(secp256k1_fixed_asset_tag* a, secp256k1_fixed_asset_tag* v, size_t i) { if (!a || !v) return 0; memcpy((a + i)->data, v->data, sizeof(v->data)); return sizeof(v->data); }
+    static void freeFixedAssetTagsArray(secp256k1_fixed_asset_tag* a) { if (a) free(a); }
     static secp256k1_generator** makeGeneratorsArray(int size) { return !size ? NULL : calloc(sizeof(secp256k1_generator*), size); }
     static void setGeneratorsArray(secp256k1_generator** a, secp256k1_generator* v, int i) { if (a) a[i] = v; }
     static void freeGeneratorsArray(secp256k1_generator** a) { if (a) free(a); }
@@ -43,12 +42,12 @@ import (
 
 const (
 	// Maximum number of inputs that may be given in a surjection proof
-	SurjectionproofMaxNInputs int = int(C.SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS) // = 256
+	SurjectionproofMaxNInputs = C.SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS // = 256
 
 	// Maximum number of inputs that may be used in a surjection proof
-	SurjectionproofMaxUsedInputs int = int(C.SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS) // = 256
+	SurjectionproofMaxUsedInputs         = C.SECP256K1_SURJECTIONPROOF_MAX_USED_INPUTS // = 256
+	SurjectionproofSerializationBytesMax = C.SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX
 
-	SurjectionProofSerializationBytesMax = int(C.SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX)
 	// Error types */
 	ErrorSurjectionproofParams       string = "invalid input parameters"
 	ErrorSurjectionproofVerification string = "surjectionproof verification failed"
@@ -59,11 +58,6 @@ const (
 // number of inputs and the number of used inputs
 func SurjectionproofSerializationBytesCalc(nInputs int, nUsedInputs int) int {
 	return int(C.surjectionproofSerializationBytes(C.int(nInputs), C.int(nUsedInputs)))
-}
-
-// Maximum number of bytes a serialized surjection proof requires
-func SurjectionproofSerializationBytesMaxCalc() int {
-	return int(C.surjectionproofSerializationBytesMax())
 }
 
 /** Opaque data structure that holds a parsed surjection proof
@@ -151,18 +145,19 @@ func SurjectionproofSerialize(
 	bytes []byte,
 	err error,
 ) {
-	size := C.size_t(SurjectionproofSerializationBytesMaxCalc())
-	data := make([]C.uchar, size)
+	var data [SurjectionproofSerializationBytesMax]C.uchar
+	size := C.size_t(len(data))
 	if 1 != C.secp256k1_surjectionproof_serialize(
 		context.ctx,
 		&data[0],
 		&size,
-		proof.proof) {
+		proof.proof,
+	) {
 
 		return nil, errors.New("Error serializing a surjection proof object")
 	}
 
-	return goBytes(data, C.int(size)), nil
+	return goBytes(data[:], C.int(size)), nil
 }
 
 /** Data structure that holds a fixed asset tag.
@@ -218,6 +213,11 @@ func FixedAssetTagSerialize(
 func (asset *FixedAssetTag) Bytes() (bytes [32]byte) {
 	bytes, _ = FixedAssetTagSerialize(asset)
 	return
+}
+
+func (asset *FixedAssetTag) Slice() []byte {
+	bytes := asset.Bytes()
+	return bytes[:]
 }
 
 func sliceBytes32(bytes [32]byte) []byte {
@@ -346,9 +346,9 @@ func SurjectionproofInitialize(
 	nMaxIterations int,
 	seed32 []byte,
 ) (
-	nIterations int,
-	inputIndex int,
-	err error,
+	int,
+	int,
+	error,
 ) {
 	// tags := make([]FixedAssetTag, len(fixedInputTags))
 	// for idx, tag := range fixedInputTags[:] {
@@ -358,7 +358,7 @@ func SurjectionproofInitialize(
 	tags := C.makeFixedAssetTagsArray(C.int(len(fixedInputTags)))
 	defer C.freeFixedAssetTagsArray(tags)
 	for idx, asset := range fixedInputTags[:] {
-		C.setFixedAssetTagsArray(tags, asset.tag, C.int(idx))
+		C.setFixedAssetTagsArray(tags, asset.tag, C.size_t(idx))
 	}
 
 	if seed32 == nil {
@@ -366,24 +366,24 @@ func SurjectionproofInitialize(
 		seed32 = seed[:]
 	}
 
-	var inputindex C.size_t
-	nIterations = int(C.secp256k1_surjectionproof_initialize(
+	inputindex := C.size_t(0)
+	nIters := int(C.secp256k1_surjectionproof_initialize(
 		context.ctx,
 		proof.proof,
 		&inputindex,
-		*tags,
+		tags,
 		C.size_t(len(fixedInputTags)),
 		C.size_t(nInputTagsToUse),
 		fixedOutputTag.tag,
 		C.size_t(nMaxIterations),
 		cBuf(seed32),
 	))
-	if 0 == nIterations {
+	if 0 == nIters {
 
 		return 0, 0, errors.New("surjection proof initialization failed")
 	}
 
-	return nIterations, int(inputindex), nil
+	return nIters, int(inputindex), nil
 }
 
 /** Surjection proof allocation and initialization function; decides on inputs to use
@@ -428,15 +428,15 @@ func SurjectionproofAllocateInitialized(
 	nMaxIterations int,
 	seed32 []byte,
 ) (
-	nIterations int,
-	proof *Surjectionproof,
-	inputIndex int,
-	err error,
+	int,
+	*Surjectionproof,
+	int,
+	error,
 ) {
 	tags := C.makeFixedAssetTagsArray(C.int(len(fixedInputTags)))
 	defer C.freeFixedAssetTagsArray(tags)
 	for idx, asset := range fixedInputTags {
-		C.setFixedAssetTagsArray(tags, asset.tag, C.int(idx))
+		C.setFixedAssetTagsArray(tags, asset.tag, C.size_t(idx))
 	}
 
 	if seed32 == nil {
@@ -444,25 +444,25 @@ func SurjectionproofAllocateInitialized(
 		seed32 = seed[:]
 	}
 
-	var inputindex C.size_t
-	proof = &Surjectionproof{}
-	nIterations = int(C.secp256k1_surjectionproof_initialize(
+	inputindex := C.size_t(0)
+	proof := Surjectionproof{}
+	nIters := int(C.secp256k1_surjectionproof_allocate_initialized(
 		context.ctx,
-		proof.proof,
+		&proof.proof,
 		&inputindex,
-		*tags,
+		tags,
 		C.size_t(len(fixedInputTags)),
 		C.size_t(nInputTagsToUse),
 		fixedOutputTag.tag,
 		C.size_t(nMaxIterations),
 		cBuf(seed32),
 	))
-	if 0 == nIterations {
+	if 0 == nIters {
 
 		return 0, nil, 0, errors.New("surjection proof allocation/initialization failed")
 	}
 
-	return nIterations, proof, int(inputindex), nil
+	return nIters, &proof, int(inputindex), nil
 }
 
 /** Surjection proof destroy function
