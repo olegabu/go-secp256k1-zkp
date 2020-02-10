@@ -74,7 +74,13 @@ func TestSurjectionAPI(t *testing.T) {
 
 	nIterations, proofOnHeap, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 3, &fixedInputTags[0], 100, seed[:])
 	assert.NoError(t, err)
+
+	// check generate
 	err = SurjectionproofGenerate(both, proofOnHeap, ephemeralInputTags[:], ephemeralOutputTag, 0, inputBlindingKeys[0][:], outputBlindingKey[:])
+	assert.NoError(t, err)
+
+	// check verify
+	err = SurjectionproofVerify(vrfy, proofOnHeap, ephemeralInputTags[:], ephemeralOutputTag)
 	assert.NoError(t, err)
 
 	/*
