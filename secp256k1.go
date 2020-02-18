@@ -579,7 +579,6 @@ func goBytes(cSlice []C.uchar, size C.int) []byte {
 
 // Generate a pseudorandom 32-byte array with long sequences of zero and one bits
 func Random256() (rnd32 [32]byte) {
-	//rnd32 = make([]byte, 32)
 	C.secp256k1_rand256(cBuf(rnd32[:]))
 	return
 }
