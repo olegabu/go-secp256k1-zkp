@@ -26,8 +26,9 @@ package secp256k1
 static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
+
+#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 */
-//#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 import "C"
 
 import (
@@ -578,7 +579,6 @@ func goBytes(cSlice []C.uchar, size C.int) []byte {
 
 // Generate a pseudorandom 32-byte array with long sequences of zero and one bits
 func Random256() (rnd32 [32]byte) {
-	//rnd32 = make([]byte, 32)
 	C.secp256k1_rand256(cBuf(rnd32[:]))
 	return
 }

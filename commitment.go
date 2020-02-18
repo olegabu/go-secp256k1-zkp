@@ -7,6 +7,7 @@
 package secp256k1
 
 /*
+#include <stddef.h>
 #include <stdlib.h>
 #include "include/secp256k1_commitment.h"
 static const unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
@@ -15,9 +16,9 @@ static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL
 static void freeBytesArray(unsigned char** a) { if (a) free(a); }
 static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) { return !size ? NULL : calloc(sizeof(secp256k1_pedersen_commitment*), size); }
 static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) { if (a) a[i] = v; }
+static secp256k1_pedersen_commitment* getCommitmentsArray(secp256k1_pedersen_commitment** a, int i) { return !a ? NULL : a[i]; }
 static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) { if (a) free(a); }
 */
-//#cgo CFLAGS: -I ${SRCDIR}/secp256k1-zkp -I ${SRCDIR}/secp256k1-zkp/src
 import "C"
 import (
 	"encoding/hex"
@@ -46,6 +47,17 @@ const (
 	ErrorCommitmentError     string = "Failed to create a commitment"
 	ErrorCommitmentBlindSum  string = "Failed to calculate sum of blinding factors"
 )
+
+func makeCommitmentsArray(size int) **C.secp256k1_pedersen_commitment {
+	return C.makeCommitmentsArray(C.int(size))
+}
+func setCommitmentsArray(array **C.secp256k1_pedersen_commitment, value *C.secp256k1_pedersen_commitment, index int) {
+	C.setCommitmentsArray(array, value, C.int(index))
+}
+func getCommitmentsArray(array **C.secp256k1_pedersen_commitment, index int) *C.secp256k1_pedersen_commitment {
+	return C.getCommitmentsArray(array, C.int(index))
+}
+func freeCommitmentsArray(array **C.secp256k1_pedersen_commitment) { C.freeCommitmentsArray(array) }
 
 func newCommitment() *Commitment {
 	return &Commitment{
@@ -287,16 +299,16 @@ func CommitSum(
 	sum *Commitment,
 	err error,
 ) {
-	posarr := C.makeCommitmentsArray(C.int(len(poscommits)))
-	defer C.freeCommitmentsArray(posarr)
+	posarr := makeCommitmentsArray(len(poscommits))
+	defer freeCommitmentsArray(posarr)
 	for pi, pc := range poscommits {
-		C.setCommitmentsArray(posarr, pc.com, C.int(pi))
+		setCommitmentsArray(posarr, pc.com, pi)
 	}
 
-	negarr := C.makeCommitmentsArray(C.int(len(negcommits)))
-	defer C.freeCommitmentsArray(negarr)
+	negarr := makeCommitmentsArray(len(negcommits))
+	defer freeCommitmentsArray(negarr)
 	for ni, nc := range negcommits {
-		C.setCommitmentsArray(negarr, nc.com, C.int(ni))
+		setCommitmentsArray(negarr, nc.com, ni)
 	}
 
 	sum = newCommitment()
@@ -335,16 +347,16 @@ func VerifyTally(
 ) (
 	err error,
 ) {
-	posarr := C.makeCommitmentsArray(C.int(len(poscommits)))
-	defer C.freeCommitmentsArray(posarr)
+	posarr := makeCommitmentsArray(len(poscommits))
+	defer freeCommitmentsArray(posarr)
 	for pi, pc := range poscommits {
-		C.setCommitmentsArray(posarr, pc.com, C.int(pi))
+		setCommitmentsArray(posarr, pc.com, pi)
 	}
 
-	negarr := C.makeCommitmentsArray(C.int(len(negcommits)))
-	defer C.freeCommitmentsArray(negarr)
+	negarr := makeCommitmentsArray(len(negcommits))
+	defer freeCommitmentsArray(negarr)
 	for ni, nc := range negcommits {
-		C.setCommitmentsArray(negarr, nc.com, C.int(ni))
+		setCommitmentsArray(negarr, nc.com, ni)
 	}
 
 	if 1 != C.secp256k1_pedersen_verify_tally(
