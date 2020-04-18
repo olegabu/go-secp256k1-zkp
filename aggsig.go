@@ -327,7 +327,12 @@ func (aggsig *AggsigSignature) Hex(context *Context) string {
 }
 
 func (context *Context) AggsigUnhex(str string) (sig *AggsigSignature, err error) {
-	sig, err = AggsigSignatureParse(context, Unhex(str))
+	var bytes []byte
+	bytes, err = hex.DecodeString(str)
+	if err != nil {
+		return
+	}
+	sig, err = AggsigSignatureParse(context, bytes)
 	return
 }
 
@@ -709,7 +714,7 @@ func AggsigVerifyPartial(
 		nil,
 		1) {
 
-		err =  errors.New(ErrorAggsigVerify)
+		err = errors.New(ErrorAggsigVerify)
 	}
 	return
 }

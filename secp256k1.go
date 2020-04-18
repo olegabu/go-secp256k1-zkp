@@ -26,13 +26,15 @@ package secp256k1
 static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
+
+#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 */
-//#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 import "C"
 
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -140,10 +142,13 @@ func newEcdsaRecoverableSignature() *EcdsaRecoverableSignature {
 	}
 }
 
+var ctxmap map[uint]*Context
+
 func init() {
 	seed := make([]byte, 16)
 	rand.Read(seed)
 	C.secp256k1_rand_seed(cBuf(seed))
+	ctxmap = make(map[uint]*Context)
 }
 
 // Begin bindings for secp256k1.h
@@ -178,6 +183,21 @@ func ContextDestroy(ctx *Context) {
 // pointer must not be null.
 func ContextRandomize(ctx *Context, seed32 [32]byte) int {
 	return int(C.secp256k1_context_randomize(ctx.ctx, cBuf(seed32[:])))
+}
+
+func SharedContext(flags uint) (context *Context) {
+	flags = flags & ContextBoth
+	context, exists := ctxmap[flags]
+	if !exists {
+		var err error
+		context, err = ContextCreate(flags)
+		if err != nil {
+			panic(fmt.Sprintf("error creating default context object (flags: %d, error: %s)", flags, err))
+		}
+		ctxmap[flags] = context
+	}
+
+	return
 }
 
 // EcPubkeyParse deserializes a variable-length public key into a *Pubkey
