@@ -8,4 +8,5 @@ require (
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20200214034016-1d94cc7ab1c6
 	gopkg.in/yaml.v2 v2.2.7
+
 )
