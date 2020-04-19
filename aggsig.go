@@ -24,8 +24,7 @@ import "C"
 import (
 	"encoding/hex"
 	"unsafe"
-
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 const (
@@ -115,7 +114,7 @@ func AggsigContextCreate(
 		cBuf(seed32),
 	)
 	if aggsigctx.ctx == nil {
-		return nil, errors.New(ErrorAggsigContextCreate)
+		return nil, fmt.Errorf(ErrorAggsigContextCreate)
 	}
 
 	return aggsigctx, nil
@@ -161,7 +160,7 @@ func AggsigGenerateNonce(
 		aggsigcontext.ctx,
 		C.size_t(sigindex)) {
 
-		return errors.New(ErrorAggsigGenNonce)
+		return fmt.Errorf(ErrorAggsigGenNonce)
 	}
 	return nil
 }
@@ -195,7 +194,7 @@ func AggsigGenerateSecureNonce(
 		cBuf(secnonce32[:]),
 		cBuf(seed32)) {
 
-		err = errors.New(ErrorAggsigGenSecNonce)
+		err = fmt.Errorf(ErrorAggsigGenSecNonce)
 	}
 
 	// sec, err := hex.DecodeString("0A00000000000000000000000000000000000000000000000000000000000000")
@@ -229,7 +228,7 @@ func newAggsigSignaturePartial() *AggsigSignaturePartial {
 
 func AggsigSignaturePartialParse(data []byte) (sig AggsigSignaturePartial, err error) {
 	if len(data) != 64 {
-		err = errors.New("Can't parse a partial signature, invalid length")
+		err = fmt.Errorf("Can't parse a partial signature, invalid length")
 	} else {
 		for i, b := range data {
 			sig[i] = C.uchar(b)
@@ -281,7 +280,7 @@ func AggsigSignatureParse(
 	err error,
 ) {
 	if len(data) != LenCompactSig {
-		return nil, errors.New(ErrorCompactSigSize)
+		return nil, fmt.Errorf(ErrorCompactSigSize)
 	}
 
 	sig = newAggsigSignature()
@@ -290,7 +289,7 @@ func AggsigSignatureParse(
 		(*C.secp256k1_ecdsa_signature)(unsafe.Pointer(&sig[0])),
 		(*C.uchar)(unsafe.Pointer(&data[0]))) {
 
-		return nil, errors.New(ErrorCompactSigParse)
+		return nil, fmt.Errorf(ErrorCompactSigParse)
 	}
 
 	return
@@ -402,7 +401,7 @@ func AggsigSignSingle(
 		pk(pubBlind),
 		cBuf(seed32)) {
 
-		err = errors.New(ErrorAggsigSign)
+		err = fmt.Errorf(ErrorAggsigSign)
 	}
 	return
 }
@@ -444,7 +443,7 @@ func AggsigPartialSign(
 		cBuf(seckey32),
 		C.size_t(index)) {
 
-		err = errors.New(ErrorAggsigSign)
+		err = fmt.Errorf(ErrorAggsigSign)
 	}
 	return
 }
@@ -486,7 +485,7 @@ func AggsigCombineSignatures(
 		*cpartsigs,
 		C.size_t(len(partsigs))) {
 
-		err = errors.New(ErrorAggsigContextCreate)
+		err = fmt.Errorf(ErrorAggsigContextCreate)
 	}
 
 	return
@@ -531,7 +530,7 @@ func AggsigAddSignaturesSingle(
 		C.size_t(count),
 		pk(pubnoncetotal)) {
 
-		err = errors.New(ErrorAggsigAddSigsSingle)
+		err = fmt.Errorf(ErrorAggsigAddSigsSingle)
 	}
 
 	return
@@ -581,7 +580,7 @@ func AggsigVerifySingle(
 		pk(pubExtra),
 		bc(isPartial)) {
 
-		return errors.New(ErrorAggsigVerify)
+		return fmt.Errorf(ErrorAggsigVerify)
 	}
 
 	return nil
@@ -628,7 +627,7 @@ func AggsigVerify(
 			*cpubkeys,
 			C.size_t(count)) {
 
-			return errors.New(ErrorAggsigVerify)
+			return fmt.Errorf(ErrorAggsigVerify)
 		}
 	} else {
 
@@ -639,7 +638,7 @@ func AggsigVerify(
 			*cpubkeys,
 			C.size_t(count)) {
 
-			return errors.New(ErrorAggsigVerify)
+			return fmt.Errorf(ErrorAggsigVerify)
 		}
 	}
 	return nil
@@ -686,7 +685,7 @@ func AggsigSignPartial(
 		pk(pubBlindSum),
 		cBuf(seed[:])) {
 
-		err = errors.New(ErrorAggsigSign)
+		err = fmt.Errorf(ErrorAggsigSign)
 	}
 	return
 }
@@ -712,7 +711,7 @@ func AggsigVerifyPartial(
 		nil,
 		1) {
 
-		err = errors.New(ErrorAggsigVerify)
+		err = fmt.Errorf(ErrorAggsigVerify)
 	}
 	return
 }

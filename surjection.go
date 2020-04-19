@@ -36,8 +36,7 @@ package secp256k1
 import "C"
 import (
 	"encoding/hex"
-
-	"github.com/pkg/errors"
+	"errors"
 )
 
 const (

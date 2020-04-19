@@ -36,8 +36,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"unsafe"
-
-	"github.com/pkg/errors"
+	"errors"
 )
 
 const (
