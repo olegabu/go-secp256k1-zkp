@@ -8,6 +8,7 @@ package secp256k1
 /*
 #include <stdlib.h>
 #include "include/secp256k1_aggsig.h"
+#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
