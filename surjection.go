@@ -232,7 +232,8 @@ func (asset *FixedAssetTag) Hex() string {
 }
 
 func (context *Context) FixedAssetTagFromHex(str string) (com *FixedAssetTag, err error) {
-	com, err = FixedAssetTagParse(Unhex(str))
+	bytes, _ := hex.DecodeString(str)
+	com, err = FixedAssetTagParse(bytes)
 
 	return
 }
