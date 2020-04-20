@@ -7,6 +7,7 @@
 package secp256k1
 
 /*
+#include <stddef.h>
 #include <stdlib.h>
 #include "include/secp256k1_commitment.h"
 static const unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
@@ -15,9 +16,10 @@ static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL
 static void freeBytesArray(unsigned char** a) { if (a) free(a); }
 static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) { return !size ? NULL : calloc(sizeof(secp256k1_pedersen_commitment*), size); }
 static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) { if (a) a[i] = v; }
+static secp256k1_pedersen_commitment* getCommitmentsArray(secp256k1_pedersen_commitment** a, int i) { return !a ? NULL : a[i]; }
 static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) { if (a) free(a); }
+#cgo CFLAGS: -I ${SRCDIR}/secp256k1-zkp -I ${SRCDIR}/secp256k1-zkp/src
 */
-//#cgo CFLAGS: -I ${SRCDIR}/secp256k1-zkp -I ${SRCDIR}/secp256k1-zkp/src
 import "C"
 import (
 	"encoding/hex"
@@ -38,14 +40,25 @@ type Commitment struct {
 }
 
 const (
-	ErrorCommitmentSize      string = "Commitment data expected length is 33 bytes"
-	ErrorCommitmentParse     string = "Unable to parse the data as a commitment"
-	ErrorCommitmentSerialize string = "Unable to serialize commitment"
-	ErrorCommitmentCount     string = "Number of elements differ in input arrays"
-	ErrorCommitmentTally     string = "Sums of inputs and outputs are not equal"
-	ErrorCommitmentError     string = "Failed to create a commitment"
-	ErrorCommitmentBlindSum  string = "Failed to calculate sum of blinding factors"
+	ErrorCommitmentParse     string = "unable to parse the data as a commitment"
+	ErrorCommitmentSerialize string = "unable to serialize commitment"
+	ErrorCommitmentCount     string = "number of elements differ in input arrays"
+	// ErrorCommitmentTally     string = "sums of inputs and outputs are not equal"
+	ErrorCommitmentCommit string = "failed to create a commitment"
+	// ErrorCommitmentBlindSum  string = "failed to calculate sum of blinding factors"
+	ErrorCommitmentPubkey string = "failed to create public key from commitment"
 )
+
+func makeCommitmentsArray(size int) **C.secp256k1_pedersen_commitment {
+	return C.makeCommitmentsArray(C.int(size))
+}
+func setCommitmentsArray(array **C.secp256k1_pedersen_commitment, value *C.secp256k1_pedersen_commitment, index int) {
+	C.setCommitmentsArray(array, value, C.int(index))
+}
+func getCommitmentsArray(array **C.secp256k1_pedersen_commitment, index int) *C.secp256k1_pedersen_commitment {
+	return C.getCommitmentsArray(array, C.int(index))
+}
+func freeCommitmentsArray(array **C.secp256k1_pedersen_commitment) { C.freeCommitmentsArray(array) }
 
 func newCommitment() *Commitment {
 	return &Commitment{
@@ -100,27 +113,29 @@ func CommitmentSerialize(
 
 		err = errors.New(ErrorCommitmentSerialize)
 	}
-	//data = goBytes(data[:33], 33)
 	return
 }
 
-func (commit *Commitment) Bytes(context *Context) (bytes [33]byte) {
-	bytes, _ = CommitmentSerialize(context, commit)
+// Convert commitment object to array of bytes
+func (commit *Commitment) Bytes() (bytes [33]byte) {
+	bytes, _ = CommitmentSerialize(SharedContext(ContextNone), commit)
 	return
 }
 
-func (commit *Commitment) Hex(context *Context) string {
-	bytes := commit.Bytes(context)
+func (commit *Commitment) String() string {
+	bytes := commit.Bytes()
+
 	return hex.EncodeToString(bytes[:])
 }
 
-func Unhex(str string) (bytes []byte) {
-	bytes, _ = hex.DecodeString(str)
-	return
-}
+func CommitmentFromString(str string) (com *Commitment, err error) {
+	bytes, err := hex.DecodeString(str)
+	if err != nil {
+		return
 
-func (context *Context) CommitmentFromHex(str string) (com *Commitment, err error) {
-	com, err = CommitmentParse(context, Unhex(str))
+	}
+	com, err = CommitmentParse(SharedContext(ContextNone), bytes)
+
 	return
 }
 
@@ -172,7 +187,7 @@ func Commit(
 		valuegen.gen,
 		blindgen.gen) {
 
-		return nil, errors.New("Error creating commitment")
+		return nil, errors.New(ErrorCommitmentCommit)
 	}
 	return
 }
@@ -287,16 +302,16 @@ func CommitSum(
 	sum *Commitment,
 	err error,
 ) {
-	posarr := C.makeCommitmentsArray(C.int(len(poscommits)))
-	defer C.freeCommitmentsArray(posarr)
+	posarr := makeCommitmentsArray(len(poscommits))
+	defer freeCommitmentsArray(posarr)
 	for pi, pc := range poscommits {
-		C.setCommitmentsArray(posarr, pc.com, C.int(pi))
+		setCommitmentsArray(posarr, pc.com, pi)
 	}
 
-	negarr := C.makeCommitmentsArray(C.int(len(negcommits)))
-	defer C.freeCommitmentsArray(negarr)
+	negarr := makeCommitmentsArray(len(negcommits))
+	defer freeCommitmentsArray(negarr)
 	for ni, nc := range negcommits {
-		C.setCommitmentsArray(negarr, nc.com, C.int(ni))
+		setCommitmentsArray(negarr, nc.com, ni)
 	}
 
 	sum = newCommitment()
@@ -335,16 +350,16 @@ func VerifyTally(
 ) (
 	err error,
 ) {
-	posarr := C.makeCommitmentsArray(C.int(len(poscommits)))
-	defer C.freeCommitmentsArray(posarr)
+	posarr := makeCommitmentsArray(len(poscommits))
+	defer freeCommitmentsArray(posarr)
 	for pi, pc := range poscommits {
-		C.setCommitmentsArray(posarr, pc.com, C.int(pi))
+		setCommitmentsArray(posarr, pc.com, pi)
 	}
 
-	negarr := C.makeCommitmentsArray(C.int(len(negcommits)))
-	defer C.freeCommitmentsArray(negarr)
+	negarr := makeCommitmentsArray(len(negcommits))
+	defer freeCommitmentsArray(negarr)
 	for ni, nc := range negcommits {
-		C.setCommitmentsArray(negarr, nc.com, C.int(ni))
+		setCommitmentsArray(negarr, nc.com, ni)
 	}
 
 	if 1 != C.secp256k1_pedersen_verify_tally(
@@ -421,7 +436,7 @@ func BlindGeneratorBlindSum(
 		C.size_t(vbl),
 		C.size_t(ninputs)) {
 
-		return nil, errors.New(ErrorCommitmentError)
+		return nil, errors.New(ErrorCommitmentCommit)
 	}
 
 	// Copy output from fbls
@@ -467,7 +482,7 @@ func BlindSwitch(
 		blindgen.gen,
 		switchpubkey.pk) {
 
-		err = errors.New(ErrorCommitmentError)
+		err = errors.New(ErrorCommitmentCommit)
 	}
 	return
 }
@@ -495,7 +510,7 @@ func CommitmentToPublicKey(
 		pubkey.pk,
 		commit.com) {
 
-		return nil, errors.New(ErrorCommitmentError)
+		return nil, errors.New(ErrorCommitmentPubkey)
 	}
 	return pubkey, nil
 }
