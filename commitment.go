@@ -355,7 +355,7 @@ func VerifyTally(
 		err = errors.New("commitments do not sum to zero or other error")
 	}
 
-	return nil
+	return
 }
 
 /** Sets the final Pedersen blinding factor correctly when the generators themselves
