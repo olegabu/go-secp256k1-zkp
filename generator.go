@@ -6,10 +6,15 @@
 */
 package secp256k1
 
-//#include "include/secp256k1_generator.h"
-//#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
+/*
+#include "include/secp256k1_generator.h"
+#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
+*/
 import "C"
-import "errors"
+import (
+	"encoding/hex"
+	"errors"
+)
 
 /******************************************************************************
  Pointer to opaque data structure that stores a base point
@@ -25,18 +30,22 @@ type Generator struct {
 }
 
 const (
-	ErrorGeneratorKeySize   string = "Generator input data length should be 33 bytes"
-	ErrorGeneratorParse     string = "Unable to parse this data as a generator"
-	ErrorGeneratorSerialize string = "Unable to serialize the generator"
-	ErrorGeneratorGenerate  string = "GeneratorGenerate error"
+	ErrorGeneratorParse    string = "failed to parse data as a generator"
+	ErrorGeneratorGenerate string = "failed to create a generator"
 )
 
 var (
-	// Standard secp256k1 generator G ///
+	// Standard secp256k1 generator G
 	GeneratorG = Generator{&C.secp256k1_generator_const_g}
-	// Alternate secp256k1 generator from Elements Alpha ///
+	// Alternate secp256k1 generator from Elements Alpha
 	GeneratorH = Generator{&C.secp256k1_generator_const_h}
 )
+
+type GeneratorHex string
+type GeneratorSerialized [33]byte
+type GeneratorSerializedSlice []byte
+
+// type GeneratorSerializedSlice = []byte
 
 func newGenerator() *Generator {
 	return &Generator{
@@ -44,47 +53,124 @@ func newGenerator() *Generator {
 	}
 }
 
-/// Parse a 33-byte generator byte sequence into a generator object.
-/// ----------------------------------------------------------------
-/// Returns: 1 if input contains a valid generator.
-/// Args: ctx:     a secp256k1 context object.
-/// In:   data:    pointer to a 33-byte serialized data
-/// Out:  status, Generator, error
-
-func GeneratorParse(context *Context, data []byte) (*Generator, error) {
-	l := len(data)
-	if l != LenCompressed {
-		return nil, errors.New(ErrorGeneratorKeySize)
+// Parse a 33-byte generator byte sequence into a generator object.
+// -> context   a secp256k1 context object.
+// -> bytes     33-byte slice of data
+// <- generator pointer to a generator object
+// <- err       nil if success or an error object
+func GeneratorParse(
+	context *Context,
+	bytes []byte,
+) (
+	generator *Generator,
+	err error,
+) {
+	if LenCompressed != len(bytes) {
+		return nil, errors.New(ErrorGeneratorParse + " (invalid length)")
 	}
-	generator := newGenerator()
-	status := int(
-		C.secp256k1_generator_parse(
-			context.ctx,
-			generator.gen,
-			cBuf(data)))
-	if status != 1 {
+	if context == nil {
+		context = SharedContext(ContextNone)
+	}
+	generator = newGenerator()
+	if 1 != C.secp256k1_generator_parse(
+		context.ctx,
+		generator.gen,
+		cBuf(bytes)) {
+
 		return nil, errors.New(ErrorGeneratorParse)
 	}
-	return generator, nil
+
+	return
 }
 
-// Serialize a 33-byte generator into a serialized byte sequence.
-//
-//  Returns: 1 always.
-//  Args:   ctx:        a secp256k1 context object.
-//  In:     Generator   a generator object
-//  Out:    status, data, error:     a pointer to a 33-byte byte array
-//
-func GeneratorSerialize(context *Context, generator *Generator) ([]byte, error) {
-	output := make([]C.uchar, 33)
-	if 1 != int(
-		C.secp256k1_generator_serialize(
-			context.ctx,
-			&output[0],
-			generator.gen)) {
-		return nil, errors.New(ErrorGeneratorSerialize)
+// Serialize a 33-byte generator into a serialized byte sequence
+//  -> context   non-NULL context
+//  -> generator generator object
+//  <- bytes     33 bytes of data
+func GeneratorSerialize(
+	context *Context,
+	generator *Generator,
+) (
+	bytes [33]byte,
+) {
+	if context == nil {
+		context = SharedContext(ContextNone)
 	}
-	return goBytes(output, 33), nil
+	C.secp256k1_generator_serialize(
+		context.ctx,
+		cBuf(bytes[:]),
+		generator.gen)
+
+	return
+}
+
+// Convert commitment object to array of bytes
+func (gen *Generator) Bytes() (bytes [33]byte) {
+	bytes = GeneratorSerialize(SharedContext(ContextNone), gen)
+	return
+}
+
+func (gen *Generator) String() string {
+	bytes := gen.Bytes()
+
+	return hex.EncodeToString(bytes[:])
+}
+
+func GeneratorFromString(str string) (gen *Generator, err error) {
+	bytes, err := hex.DecodeString(str)
+	if err != nil {
+		return
+
+	}
+	gen, err = GeneratorParse(SharedContext(ContextNone), bytes)
+
+	return
+}
+
+func GeneratorFromBytes(bytes []byte) (gen *Generator, err error) {
+	gen, err = GeneratorParse(SharedContext(ContextNone), bytes)
+
+	return
+}
+
+// String method serializes generator as a hex string
+// Generator returns object created from serialized data bytes
+// Returns nil if failed to parse
+func (genser GeneratorSerialized) Generator() (generator *Generator) {
+	gen, err := GeneratorParse(nil, genser[:])
+	if err != nil {
+		generator = gen
+	}
+
+	return
+}
+
+func (genser GeneratorSerialized) String() string {
+
+	return string(genser[:])
+}
+
+func (genserslc GeneratorSerializedSlice) Generator() (generator *Generator) {
+	var err error
+	if generator, err = GeneratorParse(nil, genserslc); err == nil {
+		return nil
+	}
+	return
+}
+
+func (genhex GeneratorHex) Generator() (generator *Generator) {
+	str := string(genhex)
+	if genser, err := hex.DecodeString(str); err == nil {
+
+		return nil
+	} else {
+		if generator, err = GeneratorParse(nil, []byte(genser)); err == nil {
+
+			return nil
+		}
+	}
+
+	return
 }
 
 // Generate a generator for the curve.
@@ -101,8 +187,10 @@ func GeneratorSerialize(context *Context, generator *Generator) ([]byte, error) 
 //      or to the base generator G.
 //
 func GeneratorGenerate(ctx *Context, seed []byte) (*Generator, error) {
+	if ctx == nil {
+		ctx = SharedContext(ContextSign)
+	}
 	generator := newGenerator()
-	
 	if 1 != C.secp256k1_generator_generate(
 		ctx.ctx,
 		generator.gen,
@@ -128,6 +216,9 @@ func GeneratorGenerate(ctx *Context, seed []byte) (*Generator, error) {
 //      and then converting back to generator form.sizeof
 //
 func GeneratorGenerateBlinded(ctx *Context, seed []byte, blind []byte) (*Generator, error) {
+	if ctx == nil {
+		ctx = SharedContext(ContextSign)
+	}
 	generator := newGenerator()
 	if 1 != int(
 		C.secp256k1_generator_generate_blinded(

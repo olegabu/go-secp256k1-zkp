@@ -5,10 +5,10 @@
  */
 package secp256k1
 
-//#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
-//#include "include/secp256k1_aggsig.h"
 /*
 #include <stdlib.h>
+#include "include/secp256k1_aggsig.h"
+#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 static void freePubkeyArray(secp256k1_pubkey **a) { free(a); }
@@ -25,8 +25,7 @@ import "C"
 import (
 	"encoding/hex"
 	"unsafe"
-
-	"github.com/pkg/errors"
+	"fmt"
 )
 
 const (
@@ -116,7 +115,7 @@ func AggsigContextCreate(
 		cBuf(seed32),
 	)
 	if aggsigctx.ctx == nil {
-		return nil, errors.New(ErrorAggsigContextCreate)
+		return nil, fmt.Errorf(ErrorAggsigContextCreate)
 	}
 
 	return aggsigctx, nil
@@ -162,7 +161,7 @@ func AggsigGenerateNonce(
 		aggsigcontext.ctx,
 		C.size_t(sigindex)) {
 
-		return errors.New(ErrorAggsigGenNonce)
+		return fmt.Errorf(ErrorAggsigGenNonce)
 	}
 	return nil
 }
@@ -196,7 +195,7 @@ func AggsigGenerateSecureNonce(
 		cBuf(secnonce32[:]),
 		cBuf(seed32)) {
 
-		err = errors.New(ErrorAggsigGenSecNonce)
+		err = fmt.Errorf(ErrorAggsigGenSecNonce)
 	}
 
 	// sec, err := hex.DecodeString("0A00000000000000000000000000000000000000000000000000000000000000")
@@ -230,7 +229,7 @@ func newAggsigSignaturePartial() *AggsigSignaturePartial {
 
 func AggsigSignaturePartialParse(data []byte) (sig AggsigSignaturePartial, err error) {
 	if len(data) != 64 {
-		err = errors.New("Can't parse a partial signature, invalid length")
+		err = fmt.Errorf("Can't parse a partial signature, invalid length")
 	} else {
 		for i, b := range data {
 			sig[i] = C.uchar(b)
@@ -282,7 +281,7 @@ func AggsigSignatureParse(
 	err error,
 ) {
 	if len(data) != LenCompactSig {
-		return nil, errors.New(ErrorCompactSigSize)
+		return nil, fmt.Errorf(ErrorCompactSigSize)
 	}
 
 	sig = newAggsigSignature()
@@ -291,7 +290,7 @@ func AggsigSignatureParse(
 		(*C.secp256k1_ecdsa_signature)(unsafe.Pointer(&sig[0])),
 		(*C.uchar)(unsafe.Pointer(&data[0]))) {
 
-		return nil, errors.New(ErrorCompactSigParse)
+		return nil, fmt.Errorf(ErrorCompactSigParse)
 	}
 
 	return
@@ -327,7 +326,12 @@ func (aggsig *AggsigSignature) Hex(context *Context) string {
 }
 
 func (context *Context) AggsigUnhex(str string) (sig *AggsigSignature, err error) {
-	sig, err = AggsigSignatureParse(context, Unhex(str))
+	var bytes []byte
+	bytes, err = hex.DecodeString(str)
+	if err != nil {
+		return
+	}
+	sig, err = AggsigSignatureParse(context, bytes)
 	return
 }
 
@@ -398,7 +402,7 @@ func AggsigSignSingle(
 		pk(pubBlind),
 		cBuf(seed32)) {
 
-		err = errors.New(ErrorAggsigSign)
+		err = fmt.Errorf(ErrorAggsigSign)
 	}
 	return
 }
@@ -440,7 +444,7 @@ func AggsigPartialSign(
 		cBuf(seckey32),
 		C.size_t(index)) {
 
-		err = errors.New(ErrorAggsigSign)
+		err = fmt.Errorf(ErrorAggsigSign)
 	}
 	return
 }
@@ -482,7 +486,7 @@ func AggsigCombineSignatures(
 		*cpartsigs,
 		C.size_t(len(partsigs))) {
 
-		err = errors.New(ErrorAggsigContextCreate)
+		err = fmt.Errorf(ErrorAggsigContextCreate)
 	}
 
 	return
@@ -527,7 +531,7 @@ func AggsigAddSignaturesSingle(
 		C.size_t(count),
 		pk(pubnoncetotal)) {
 
-		err = errors.New(ErrorAggsigAddSigsSingle)
+		err = fmt.Errorf(ErrorAggsigAddSigsSingle)
 	}
 
 	return
@@ -577,7 +581,7 @@ func AggsigVerifySingle(
 		pk(pubExtra),
 		bc(isPartial)) {
 
-		return errors.New(ErrorAggsigVerify)
+		return fmt.Errorf(ErrorAggsigVerify)
 	}
 
 	return nil
@@ -624,7 +628,7 @@ func AggsigVerify(
 			*cpubkeys,
 			C.size_t(count)) {
 
-			return errors.New(ErrorAggsigVerify)
+			return fmt.Errorf(ErrorAggsigVerify)
 		}
 	} else {
 
@@ -635,7 +639,7 @@ func AggsigVerify(
 			*cpubkeys,
 			C.size_t(count)) {
 
-			return errors.New(ErrorAggsigVerify)
+			return fmt.Errorf(ErrorAggsigVerify)
 		}
 	}
 	return nil
@@ -650,14 +654,13 @@ func AggsigVerify(
  *       pubkeys: array of public keys (cannot be NULL)
  *        n_keys: the number of public keys
  */
-//extern SECP256K1_API int secp256k1_aggsig_build_scratch_and_verify(
+// extern SECP256K1_API int secp256k1_aggsig_build_scratch_and_verify(
 //    const secp256k1_context* ctx,
 //    const unsigned char *sig64,
 //    const unsigned char *msg32,
 //    const secp256k1_pubkey *pubkeys,
 //    size_t n_pubkeys
-//) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_WARN_UNUSED_RESULT;
-
+// ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_WARN_UNUSED_RESULT;
 func AggsigSignPartial(
 	context *Context,
 	secBlind []byte,
@@ -683,7 +686,7 @@ func AggsigSignPartial(
 		pk(pubBlindSum),
 		cBuf(seed[:])) {
 
-		err = errors.New(ErrorAggsigSign)
+		err = fmt.Errorf(ErrorAggsigSign)
 	}
 	return
 }
@@ -709,7 +712,7 @@ func AggsigVerifyPartial(
 		nil,
 		1) {
 
-		err =  errors.New(ErrorAggsigVerify)
+		err = fmt.Errorf(ErrorAggsigVerify)
 	}
 	return
 }
