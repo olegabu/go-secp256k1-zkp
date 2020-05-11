@@ -11,7 +11,7 @@ func TestSurjectionAPI(t *testing.T) {
 
 	var (
 		fixedInputTags [10]FixedAssetTag
-		//fixedOutputTag     FixedAssetTag
+		// fixedOutputTag     FixedAssetTag
 		ephemeralInputTags [10]Generator
 		ephemeralOutputTag Generator
 		inputBlindingKeys  [10][32]byte

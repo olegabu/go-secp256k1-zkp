@@ -1,4 +1,4 @@
-/* This package implements Zero Knowledge Proof algorithms for Golang
+ /* This package implements Zero Knowledge Proof algorithms for Golang
 **
 ** Contains Go bindings for the secp256k1-zkp C-library, which is
 ** based on the secp256k1 - a highly optimized implementation of the
@@ -7,6 +7,7 @@
 package secp256k1
 
 /*
+#cgo CFLAGS: -I ${SRCDIR}/secp256k1-zkp -I ${SRCDIR}/secp256k1-zkp/src
 #include <stddef.h>
 #include <stdlib.h>
 #include "include/secp256k1_commitment.h"
@@ -18,7 +19,6 @@ static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) { return !
 static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) { if (a) a[i] = v; }
 static secp256k1_pedersen_commitment* getCommitmentsArray(secp256k1_pedersen_commitment** a, int i) { return !a ? NULL : a[i]; }
 static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) { if (a) free(a); }
-#cgo CFLAGS: -I ${SRCDIR}/secp256k1-zkp -I ${SRCDIR}/secp256k1-zkp/src
 */
 import "C"
 import (
