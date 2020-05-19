@@ -1,4 +1,4 @@
- /* This package implements Zero Knowledge Proof algorithms for Golang
+/* This package implements Zero Knowledge Proof algorithms for Golang
 **
 ** Contains Go bindings for the secp256k1-zkp C-library, which is
 ** based on the secp256k1 - a highly optimized implementation of the
@@ -8,9 +8,19 @@ package secp256k1
 
 /*
 #cgo CFLAGS: -I ${SRCDIR}/secp256k1-zkp -I ${SRCDIR}/secp256k1-zkp/src
+#define USE_BASIC_CONFIG 1
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include "basic-config.h"
+#include "include/secp256k1.h"
 #include "include/secp256k1_commitment.h"
+#include "group.h"
+#include "scalar.h"
+#include "scalar_impl.h"
+#include "src/util.h"
+#include "src/hash_impl.h"
+#include "src/testrand_impl.h"
 static const unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
 static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
 static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
@@ -19,6 +29,44 @@ static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) { return !
 static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) { if (a) a[i] = v; }
 static secp256k1_pedersen_commitment* getCommitmentsArray(secp256k1_pedersen_commitment** a, int i) { return !a ? NULL : a[i]; }
 static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) { if (a) free(a); }
+void random_scalar_order(secp256k1_scalar *num) {
+     do {
+         unsigned char b32[32];
+         int overflow = 0;
+         secp256k1_rand256(b32);
+         secp256k1_scalar_set_b32(num, b32, &overflow);
+         if (overflow || secp256k1_scalar_is_zero(num)) {
+             continue;
+         }
+         break;
+     } while(1);
+}
+int gen_random_blind (unsigned char *out) {
+    secp256k1_scalar secret;
+    unsigned char bytes[32];
+    random_scalar_order(&secret);
+    secp256k1_scalar_get_b32(out, &secret);
+    return 1;
+}
+int blinds_calc(uint64_t v, const unsigned char* ra, unsigned char* r) {
+ 	int success = 0;
+    int overflow = 0;
+    secp256k1_scalar tmp, vra;
+    secp256k1_scalar_set_u64(&vra, v);
+ 	secp256k1_scalar_set_b32(&tmp, ra, &overflow);
+    if (!overflow) {
+        secp256k1_scalar_mul(&vra, &vra, &tmp); // vra = v * ra
+        secp256k1_scalar_set_b32(&tmp, r, &overflow);
+        if (!overflow) {
+            secp256k1_scalar_add(&vra, &vra, &tmp); // result = vra + r
+            secp256k1_scalar_get_b32(r, &vra); // pass the result back in r
+            success = 1;
+        }
+ 	}
+    secp256k1_scalar_clear(&vra);
+    secp256k1_scalar_clear(&tmp);
+    return success;
+}
 */
 import "C"
 import (
@@ -513,4 +561,31 @@ func CommitmentToPublicKey(
 		return nil, errors.New(ErrorCommitmentPubkey)
 	}
 	return pubkey, nil
+}
+
+func GenRandomBlind() (bytes [32]byte, err error) {
+	if 1 != C.gen_random_blind(cBuf(bytes[:])) {
+		return [32]byte{}, errors.New("GenRandomBlind failed")
+	}
+	return
+}
+
+// Calculates r + (v * ra)
+func CalcBlinds(
+	v uint64, // v = value
+	ra []byte, // ra = asset blind
+	r []byte, // r value blind
+) (
+	result [32]byte, // out = r + (v * ra)
+	err error,
+) {
+	copy(result[:], r)
+	if 1 != C.blinds_calc(
+		C.uint64_t(v),
+		cBuf(ra),
+		cBuf(result[:]),
+	) {
+		err = errors.New(ErrorCommitmentCommit)
+	}
+	return
 }
