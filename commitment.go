@@ -24,7 +24,7 @@ static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) { return !
 static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) { if (a) a[i] = v; }
 static secp256k1_pedersen_commitment* getCommitmentsArray(secp256k1_pedersen_commitment** a, int i) { return !a ? NULL : a[i]; }
 static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) { if (a) free(a); }
-int sum_blind_generator_blind(uint64_t v, const unsigned char* ra, unsigned char* r) {
+int blind_value_generator_blind_sum(uint64_t v, const unsigned char* ra, unsigned char* r) {
  	int success = 0;
     int overflow = 0;
     secp256k1_scalar tmp, vra;
@@ -551,7 +551,7 @@ func CommitmentToPublicKey(
  *     err == nil if success
  *
  */
-func SumBlindGeneratorBlind(
+func BlindValueGeneratorBlindSum(
 	v uint64,
 	ra []byte,
 	r []byte,
@@ -560,7 +560,7 @@ func SumBlindGeneratorBlind(
 	err error,
 ) {
 	copy(result[:], r)
-	if 1 != C.sum_blind_generator_blind(
+	if 1 != C.blind_value_generator_blind_sum(
 		C.uint64_t(v),
 		cBuf(ra),
 		cBuf(result[:]),
