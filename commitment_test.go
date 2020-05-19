@@ -72,3 +72,25 @@ func TestCommitmentAPI(t *testing.T) {
 	assert.NoError(t, err)
 	fmt.Printf("blindout=%v\n", blindout)
 }
+
+func TestCalcBlind(t *testing.T) {
+	v := uint64(100)
+	r, ra := Random256(), Random256()
+
+	// Calculate r + (v * ra)
+	fmt.Printf("v=%v\nr=%X\nra=%X\n", v, r, ra)
+	result, err := SumBlindGeneratorBlind(v, ra[:], r[:])
+	assert.NoError(t, err)
+	fmt.Printf("result=%X\n", result)
+
+	// Verify using alternative calc
+	arr := [][]byte{}
+	for i := uint64(0); i < v; i++ {
+		arr = append(arr, ra[:])
+	}
+	arr = append(arr, r[:])
+	result2, err := BlindSum(SharedContext(ContextSign), arr[:], nil)
+	fmt.Printf("result2=%X\n", result2)
+
+	assert.Equal(t, result, result2)
+}

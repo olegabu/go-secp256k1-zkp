@@ -15,12 +15,7 @@ package secp256k1
 #include "basic-config.h"
 #include "include/secp256k1.h"
 #include "include/secp256k1_commitment.h"
-#include "group.h"
-#include "scalar.h"
 #include "scalar_impl.h"
-#include "src/util.h"
-#include "src/hash_impl.h"
-#include "src/testrand_impl.h"
 static const unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
 static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
 static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
@@ -29,26 +24,7 @@ static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) { return !
 static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) { if (a) a[i] = v; }
 static secp256k1_pedersen_commitment* getCommitmentsArray(secp256k1_pedersen_commitment** a, int i) { return !a ? NULL : a[i]; }
 static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) { if (a) free(a); }
-void random_scalar_order(secp256k1_scalar *num) {
-     do {
-         unsigned char b32[32];
-         int overflow = 0;
-         secp256k1_rand256(b32);
-         secp256k1_scalar_set_b32(num, b32, &overflow);
-         if (overflow || secp256k1_scalar_is_zero(num)) {
-             continue;
-         }
-         break;
-     } while(1);
-}
-int gen_random_blind (unsigned char *out) {
-    secp256k1_scalar secret;
-    unsigned char bytes[32];
-    random_scalar_order(&secret);
-    secp256k1_scalar_get_b32(out, &secret);
-    return 1;
-}
-int blinds_calc(uint64_t v, const unsigned char* ra, unsigned char* r) {
+int sum_blind_generator_blind(uint64_t v, const unsigned char* ra, unsigned char* r) {
  	int success = 0;
     int overflow = 0;
     secp256k1_scalar tmp, vra;
@@ -539,12 +515,12 @@ func BlindSwitch(
  *
  * Returns 1: Public key succesfully computed.
  *         0: Error.
-*
+ *
  * In:                 ctx: pointer to a context object
  *                   commit: pointer to a single commit
  * Out:              pubkey: resulting pubkey
  *
-*/
+ */
 func CommitmentToPublicKey(
 	context *Context,
 	commit *Commitment,
@@ -563,24 +539,28 @@ func CommitmentToPublicKey(
 	return pubkey, nil
 }
 
-func GenRandomBlind() (bytes [32]byte, err error) {
-	if 1 != C.gen_random_blind(cBuf(bytes[:])) {
-		return [32]byte{}, errors.New("GenRandomBlind failed")
-	}
-	return
-}
-
-// Calculates r + (v * ra)
-func CalcBlinds(
-	v uint64, // v = value
-	ra []byte, // ra = asset blind
-	r []byte, // r value blind
+/** SumBlindGeneratorBlind takes a value (64-bit int), and both
+ *  value's and asset's blinding factors and computes using formula:
+ *  r + (v * ra)
+ *
+ *   IN: v = value 64 bit int
+ *       r = value's blinding factor
+ *      ra = asset's blinding factor
+ *   OUT:
+ *        result: 32-byte scalar value
+ *     err == nil if success
+ *
+ */
+func SumBlindGeneratorBlind(
+	v uint64,
+	ra []byte,
+	r []byte,
 ) (
-	result [32]byte, // out = r + (v * ra)
+	result [32]byte,
 	err error,
 ) {
 	copy(result[:], r)
-	if 1 != C.blinds_calc(
+	if 1 != C.sum_blind_generator_blind(
 		C.uint64_t(v),
 		cBuf(ra),
 		cBuf(result[:]),
