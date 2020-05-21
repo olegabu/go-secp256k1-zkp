@@ -413,6 +413,29 @@ func BulletproofRangeproofVerifySingle(
 ) (
 	err error,
 ) {
+	return BulletproofRangeproofVerifySingleCustomGen(
+		context,
+		scratch,
+		generators,
+		proof,
+		commit,
+		extra,
+		&GeneratorH,
+	)
+}
+
+func BulletproofRangeproofVerifySingleCustomGen(
+	context *Context,
+	scratch *ScratchSpace,
+	generators *BulletproofGenerators,
+	proof []byte,
+	//minvalue uint64,
+	commit *Commitment,
+	extra []byte,
+	genH *Generator,
+) (
+	err error,
+) {
 	if scratch == nil {
 		scratch, err = ScratchSpaceCreate(context, 1024*4096)
 		if err != nil {
@@ -445,7 +468,7 @@ func BulletproofRangeproofVerifySingle(
 		commitc,
 		C.size_t(1),
 		C.size_t(64),
-		GeneratorH.gen,
+		genH.gen,
 		cBuf(extra),
 		C.size_t(len(extra)),
 	))
@@ -648,7 +671,7 @@ SECP256K1_WARN_UNUSED_RESULT SECP256K1_API int secp256k1_bulletproof_rangeproof_
     const unsigned char* message
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(11) SECP256K1_ARG_NONNULL(14) SECP256K1_ARG_NONNULL(16);
 */
-func BulletproofRangeproofProveSingle( // this version is for single signer only
+func BulletproofRangeproofProveSingleCustomGen( // this version is for single signer only
 	context *Context,
 	scratch *ScratchSpace,
 	generators *BulletproofGenerators,
@@ -658,6 +681,7 @@ func BulletproofRangeproofProveSingle( // this version is for single signer only
 	privatenonce []byte,
 	extra []byte,
 	message []byte,
+	genH *Generator,
 ) (
 	proof []byte,
 	err error,
@@ -685,7 +709,7 @@ func BulletproofRangeproofProveSingle( // this version is for single signer only
 	defer C.freeBytesArray(blindc)
 
 	valuec := u64Arr([]uint64{value})
-	//valuecp := &valuec
+	//valuecp := &valu1ec
 
 	var msg []byte = nil
 	var msgp *C.uchar = nil
@@ -726,7 +750,7 @@ func BulletproofRangeproofProveSingle( // this version is for single signer only
 		blindc,
 		nil,
 		C.size_t(1),
-		GeneratorH.gen,
+		genH.gen, //GeneratorH.gen,
 		C.size_t(64),
 		cBuf(rewindnonce),
 		cBuf(privatenonce),
@@ -763,6 +787,26 @@ func BulletproofRangeproofProveSingle( // this version is for single signer only
 		) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(9) SECP256K1_ARG_NONNULL(11) SECP256K1_ARG_NONNULL(14) SECP256K1_ARG_NONNULL(16);
 	*/
 	return goBytes(outproof, C.int(outprooflen)), nil
+}
+
+func BulletproofRangeproofProveSingle( // this version is for single signer only
+	context *Context,
+	scratch *ScratchSpace,
+	generators *BulletproofGenerators,
+	value uint64,
+	blind []byte,
+	rewindnonce []byte,
+	privatenonce []byte,
+	extra []byte,
+	message []byte,
+	genH *Generator,
+) (
+	proof []byte,
+	err error,
+) {
+	return BulletproofRangeproofProveSingleCustomGen(
+		context, scratch, generators, value, blind, rewindnonce, privatenonce, extra, message, &GeneratorH,
+	)
 }
 
 /** Produces an aggregate Bulletproof rangeproof for a set of Pedersen commitments
