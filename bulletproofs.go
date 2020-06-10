@@ -799,7 +799,6 @@ func BulletproofRangeproofProveSingle( // this version is for single signer only
 	privatenonce []byte,
 	extra []byte,
 	message []byte,
-	genH *Generator,
 ) (
 	proof []byte,
 	err error,

@@ -79,7 +79,7 @@ func TestCalcBlind(t *testing.T) {
 
 	// Calculate r + (v * ra)
 	fmt.Printf("v=%v\nr=%X\nra=%X\n", v, r, ra)
-	result, err := SumBlindGeneratorBlind(v, ra[:], r[:])
+	result, err := BlindValueGeneratorBlindSum(v, ra[:], r[:])
 	assert.NoError(t, err)
 	fmt.Printf("result=%X\n", result)
 
