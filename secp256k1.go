@@ -25,8 +25,8 @@ package secp256k1
 inline secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 inline void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 inline void freePubkeyArray(secp256k1_pubkey * *a) { free(a); }
-long long getSelfThreadId64() { return (long long)pthread_self; }
-uint32_t getSelfThreadId() { return (uint32_t)syscall(SYS_gettid); }
+//long long getSelfThreadId64() { return (long long)pthread_self; }
+//uint32_t getSelfThreadId() { return (uint32_t)syscall(SYS_gettid); }
 void random_scalar_order256(unsigned char *out) {
 	do {
         int overflow = 0;
@@ -647,10 +647,10 @@ func (context *Context) PublicKeyFromHex(str string) (pubkey *PublicKey) {
 	return
 }
 
-func GetThreadId() uint32 {
+/*func GetThreadId() uint32 {
 	return uint32(C.getSelfThreadId())
 }
 
 func GetThreadId64() uint64 {
 	return uint64(C.getSelfThreadId64())
-}
+}*/
