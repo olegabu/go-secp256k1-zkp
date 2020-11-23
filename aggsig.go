@@ -44,7 +44,7 @@ const (
 /****************************************************************************************************************
 **
 **  Begin of AggsigContext section
- */
+*/
 
 /** Opaque data structure that holds context for the aggregated signature state machine
  *
@@ -75,8 +75,8 @@ type AggsigContext struct {
 
 // Create empty AggsigContext object
 func newAggsigContext() *AggsigContext {
-	return &AggsigContext{
-		ctx: &C.secp256k1_aggsig_context{}}
+	var ctx *C.secp256k1_aggsig_context
+	return &AggsigContext{ctx }
 }
 
 /** Create an aggregated signature context object with a given size
@@ -197,9 +197,6 @@ func AggsigGenerateSecureNonce(
 
 		err = fmt.Errorf(ErrorAggsigGenSecNonce)
 	}
-
-	// sec, err := hex.DecodeString("0A00000000000000000000000000000000000000000000000000000000000000")
-	// copy(secnonce32[:], sec[:])
 
 	return
 }

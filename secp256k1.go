@@ -127,9 +127,8 @@ type EcdsaRecoverableSignature struct {
 // Helper methods for this library
 
 func newContext() *Context {
-	return &Context{
-		ctx: &C.secp256k1_context{},
-	}
+	var ctx *C.secp256k1_context
+	return &Context{ctx}
 }
 
 func newPublicKey() *PublicKey {

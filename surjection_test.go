@@ -1,10 +1,13 @@
 package secp256k1
 
 import (
-	//"encoding/hex"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"encoding/hex"
+	"encoding/json"
+	"io/ioutil"
+
 )
 
 func TestSurjectionLoop(t *testing.T) {
@@ -79,7 +82,7 @@ func TestSurjectionAPI(t *testing.T) {
 			nIterations, proof, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 3, &fixedInputTags[0], 100, seed[:])
 			assert.NoError(t, err)
 		*/
-		nIterations, proof, inputIndex, err = SurjectionproofAllocateInitialized(both, fixedInputTags[:], 2, fixedInputTags[outputIndex], 100, seed[:])
+		proof, inputIndex, err = SurjectionproofInitialize(both, fixedInputTags[:], 2, fixedInputTags[outputIndex], 100, seed[:])
 		assert.NoError(t, err)
 
 		//proofBytes, _ := SurjectionproofSerialize(none, proof)
@@ -89,16 +92,15 @@ func TestSurjectionAPI(t *testing.T) {
 		err = SurjectionproofGenerate(both, proof, ephemeralInputTags, ephemeralOutputTag, inputIndex, inputBlindingKeys[outputIndex][:], outputBlindingKey[:])
 		assert.NoError(t, err)
 
-		proofBytes, err := SurjectionproofSerialize(both, proof)
+		proofBytes, err := SurjectionproofSerialize(SharedContext(ContextNone), &proof)
 		assert.NoError(t, err)
 
-		proof2, err := SurjectionproofParse(both, proofBytes)
+		proof2, err := SurjectionproofParse(SharedContext(ContextNone), proofBytes)
 		assert.NoError(t, err)
 		assert.Equal(t, proof, proof2)
 
 		// check verify
 		err = SurjectionproofVerify(both, proof, ephemeralInputTags, ephemeralOutputTag)
-		SurjectionproofDestroy(proof)
 
 		fmt.Printf("#%d: verified=%v, proof=%X\n", it, err, proofBytes)
 		assert.NoError(t, err)
@@ -218,7 +220,7 @@ func TestSurjectionproofGenVerify(t *testing.T) {
 			err = SurjectionproofGenerate(SharedContext(ContextBoth), proof, inpEphems[:], outEphem, inputIndex, inpBlinds[inputIndex][:], outBlind[:])
 			assert.NoError(t, err)
 
-			serializedProof, err := SurjectionproofSerialize(SharedContext(ContextBoth), proof)
+			serializedProof, err := SurjectionproofSerialize(SharedContext(ContextBoth), &proof)
 			assert.NoError(t, err)
 
 			deserializedProof, err := SurjectionproofParse(SharedContext(ContextBoth), serializedProof)
@@ -227,11 +229,11 @@ func TestSurjectionproofGenVerify(t *testing.T) {
 
 			err = SurjectionproofVerify(SharedContext(ContextVerify), deserializedProof, inpEphems[:], outEphem)
 			if err == nil {
-				fmt.Printf("PASS")
+				fmt.Printf("PASS ")
 			} else {
-				fmt.Printf("FAIL")
+				fmt.Printf("FAIL ")
 			}
-			fmt.Printf(" :: %d :: SurjectionproofVerify :: tid=%X/%X, proof=%X\n", it, GetThreadId(), GetThreadId64(), serializedProof)
+			//fmt.Printf(" :: %d :: SurjectionproofVerify :: tid=%X/%X, proof=%X\n", it, GetThreadId(), GetThreadId64(), serializedProof)
 			if err == nil {
 				break
 			}
@@ -329,4 +331,91 @@ func TestSurjectionproofGenVerify(t *testing.T) {
 			}
 		}
 	*/
+}
+
+func TestSurjectionproofInitializeAndSerialize(t *testing.T) {
+	file, err := ioutil.ReadFile("testdata/surjectionproof.json")
+	assert.NoError(t, err)
+
+	var tests map[string]interface{}
+	json.Unmarshal(file, &tests)
+	vectors := tests["initializeAndSerialize"].([]interface{})
+
+	ctx, _ := ContextCreate(ContextNone)
+	defer ContextDestroy(ctx)
+
+	for _, testVector := range vectors {
+		v := testVector.(map[string]interface{})
+
+		seed, _ := hex.DecodeString(v["seed"].(string))
+		nInputTagsToUse := int(v["inputTagsToUse"].(float64))
+		nMaxIterations := int(v["maxIterations"].(float64))
+		fixedOutputTag, err := FixedAssetTagFromHex(v["outputTag"].(string))
+		assert.NoError(t, err)
+		fixedInputTags := []*FixedAssetTag{}
+		for _, inTag := range v["inputTags"].([]interface{}) {
+			fixedAssetTag, err := FixedAssetTagFromHex(inTag.(string))
+			assert.NoError(t, err)
+			fixedInputTags = append(fixedInputTags, fixedAssetTag)
+		}
+
+		proof, inputIndex, err := SurjectionproofInitialize(
+			ctx,
+			fixedInputTags,
+			nInputTagsToUse,
+			fixedOutputTag,
+			nMaxIterations,
+			seed,
+		)
+		assert.NoError(t, err)
+		expected := v["expected"].(map[string]interface{})
+		assert.Equal(t, int(expected["inputIndex"].(float64)), inputIndex)
+		assert.Equal(t, expected["proof"].(string), proof.String())
+		assert.Equal(t, int(expected["nInputs"].(float64)), SurjectionproofNTotalInputs(ctx, proof))
+		assert.Equal(t, int(expected["nUsedInputs"].(float64)), SurjectionproofNUsedInputs(ctx, proof))
+	}
+}
+
+func TestSurjectionproofGenerateAndVerify(t *testing.T) {
+	file, err := ioutil.ReadFile("testdata/surjectionproof.json")
+	assert.NoError(t, err)
+
+	var tests map[string]interface{}
+	json.Unmarshal(file, &tests)
+	vectors := tests["generateAndVerify"].([]interface{})
+
+	ctx, _ := ContextCreate(ContextBoth)
+	defer ContextDestroy(ctx)
+
+	for _, testVector := range vectors {
+		v := testVector.(map[string]interface{})
+
+		inIndex := int(v["inputIndex"].(float64))
+		inBlindingKey, _ := hex.DecodeString(v["inputBlindingKey"].(string))
+		outBlindingKey, _ := hex.DecodeString(v["outputBlindingKey"].(string))
+		proof, err := SurjectionproofFromString(v["proof"].(string))
+		assert.NoError(t, err)
+		ephemeralOutTag, err := GeneratorFromString(v["ephemeralOutputTag"].(string))
+		assert.NoError(t, err)
+		ephemeralInTags := []*Generator{}
+		for _, inTag := range v["ephemeralInputTags"].([]interface{}) {
+			ephemeralInTag, err := GeneratorFromString(inTag.(string))
+			assert.NoError(t, err)
+			ephemeralInTags = append(ephemeralInTags, ephemeralInTag)
+		}
+
+		err = SurjectionproofGenerate(
+			ctx,
+			proof,
+			ephemeralInTags,
+			ephemeralOutTag,
+			inIndex,
+			inBlindingKey,
+			outBlindingKey,
+		)
+		assert.NoError(t, err)
+		assert.NotNil(t, proof)
+		assert.Equal(t, v["expected"].(string), proof.String())
+		assert.Equal(t, nil, SurjectionproofVerify(ctx, proof, ephemeralInTags, ephemeralOutTag))
+	}
 }

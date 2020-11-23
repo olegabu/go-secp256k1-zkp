@@ -147,7 +147,7 @@ func NewSurjectionproof() (proof Surjectionproof) {
 // ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 func SurjectionproofSerialize(
 	context *Context,
-	proof Surjectionproof,
+	proof *Surjectionproof,
 ) (
 	bytes []byte,
 	err error,
@@ -165,6 +165,27 @@ func SurjectionproofSerialize(
 	}
 
 	return goBytes(data[:], C.int(size)), nil
+}
+
+func (proof *Surjectionproof) Bytes() (bytes []byte) {
+	bytes, _ = SurjectionproofSerialize(SharedContext(ContextNone), proof)
+	return
+}
+
+func (proof *Surjectionproof) String() string {
+	bytes := proof.Bytes()
+
+	return hex.EncodeToString(bytes)
+}
+
+func SurjectionproofFromString(str string) (proof Surjectionproof, err error) {
+	var bytes []byte
+	bytes, err = hex.DecodeString(str)
+	if err == nil {
+		proof, err = SurjectionproofParse(SharedContext(ContextNone), bytes)
+	}
+
+	return
 }
 
 /** Data structure that holds a fixed asset tag.
@@ -242,7 +263,7 @@ func (asset *FixedAssetTag) Hex() string {
 	return hex.EncodeToString(bytes[:])
 }
 
-func (context *Context) FixedAssetTagFromHex(str string) (com *FixedAssetTag, err error) {
+func FixedAssetTagFromHex(str string) (com *FixedAssetTag, err error) {
 	bytes, _ := hex.DecodeString(str)
 	com, err = FixedAssetTagParse(bytes)
 
@@ -351,7 +372,6 @@ func SurjectionproofSerializedSize(
 // ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(7);
 func SurjectionproofInitializeNum(
 	context *Context,
-	proof Surjectionproof,
 	fixedInputTags []*FixedAssetTag,
 	nInputs int,
 	nInputTagsToUse int,
@@ -359,61 +379,70 @@ func SurjectionproofInitializeNum(
 	nMaxIterations int,
 	seed32 []byte,
 ) (
-	int,
-	int,
-	error,
+	proof Surjectionproof,
+	inputIndex int,
+	err error,
 ) {
-	tags := C.makeFixedAssetTagsArray(C.int(len(fixedInputTags)))
-	defer C.freeFixedAssetTagsArray(tags)
-	for idx, asset := range fixedInputTags {
-		if idx >= nInputs {
-			break
-		}
-		C.setFixedAssetTagsArray(tags, asset.tag, C.size_t(idx))
+	if nInputs > len(fixedInputTags) {
+		err = errors.New("nInputs exceeds number of elements in the array")
+		return
 	}
+	// cache data locally to prevent unexpected modifications
+	data := make([]C.secp256k1_fixed_asset_tag, nInputs)
+	ptrs := make([]*C.secp256k1_fixed_asset_tag, nInputs)
+	for i := 0; i < nInputs; i++ {
+		e := fixedInputTags[i]
+		if e == nil || e.tag == nil {
+			err = errors.New("input data item is empty")
+			return
+		}
+		data[i] = *(e.tag)
+		ptrs[i] = &data[i]
+	}
+
 	if seed32 == nil {
 		seed := Random256()
 		seed32 = seed[:]
 	}
 
-	inputindex := C.size_t(0)
+	var index C.size_t
+	proof.proof = &C.secp256k1_surjectionproof{}
 	nIters := int(C.secp256k1_surjectionproof_initialize(
 		context.ctx,
 		proof.proof,
-		&inputindex,
-		tags,
-		C.size_t(nInputs), //len(fixedInputTags)),
+		&index,
+		ptrs[0],
+		C.size_t(nInputs),
 		C.size_t(nInputTagsToUse),
 		fixedOutputTag.tag,
 		C.size_t(nMaxIterations),
 		cBuf(seed32),
 	))
 	if nIters <= 0 {
-
-		return nIters, 0, fmt.Errorf("surjection proof initialization failed (%v)", nIters)
+		err = fmt.Errorf("surjection proof initialization failed (%v)", nIters)
+	} else {
+		inputIndex = int(index)
 	}
 
-	return nIters, int(inputindex), nil
+	return
 }
 
 // Wrapper for backward compatibility
 // - length of fixedInputTags slice is the nInputs
 func SurjectionproofInitialize(
 	context *Context,
-	proof Surjectionproof,
 	fixedInputTags []*FixedAssetTag,
 	nInputTagsToUse int,
 	fixedOutputTag *FixedAssetTag,
 	nMaxIterations int,
 	seed32 []byte,
 ) (
-	nIterations int,
+	proof Surjectionproof,
 	inputIndex int,
 	err error,
 ) {
 	return SurjectionproofInitializeNum(
 		context,
-		proof,
 		fixedInputTags,
 		len(fixedInputTags),
 		nInputTagsToUse,
@@ -544,20 +573,6 @@ func SurjectionproofAllocateInitializedNum(
 	}
 
 	return nIters, proof, int(inputindex), nil
-}
-
-/** Surjection proof destroy function
- *  deallocates the struct that was allocated with secp256k1_surjectionproof_allocate_initialized
- *
- * In:               proof: pointer to secp256k1_surjectionproof struct
- */
-// SECP256K1_API void secp256k1_surjectionproof_destroy(
-//     secp256k1_surjectionproof* proof
-// ) SECP256K1_ARG_NONNULL(1);
-func SurjectionproofDestroy(
-	proof Surjectionproof,
-) {
-	C.secp256k1_surjectionproof_destroy(proof.proof)
 }
 
 /** Surjection proof generation function

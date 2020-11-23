@@ -7,9 +7,11 @@
 package secp256k1
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 #include <stdlib.h>
 #include "include/secp256k1_bulletproofs.h"
+#include "include/secp256k1.h"
+#include "util.h"
+#include "scratch.h"
 static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) { return !size ? NULL : calloc(sizeof(secp256k1_pedersen_commitment*), size); }
 static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) { if (a) a[i] = v; }
 static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) { if (a) free(a); }
@@ -20,6 +22,7 @@ static const unsigned char** makeBytesArray(int size) { return !size ? NULL : ca
 static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
 static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
 static void freeBytesArray(unsigned char** a) { if (a) free(a); }
+#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 */
 import "C"
 import (
@@ -70,9 +73,8 @@ type ScratchSpace struct {
 
 // Create empty Scratch object
 func newScratchSpace() *ScratchSpace {
-	return &ScratchSpace{
-		scr: &C.secp256k1_scratch_space{},
-	}
+	var scr *C.secp256k1_scratch_space
+	return &ScratchSpace{scr}
 }
 
 // Attempts to allocate a new stack frame with `n` available bytes. Returns 1 on success, 0 on failure
