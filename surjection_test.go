@@ -1,23 +1,22 @@
 package secp256k1
 
 import (
-	"fmt"
-	"github.com/stretchr/testify/assert"
-	"testing"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
-
+	"testing"
 )
 
 func TestSurjectionLoop(t *testing.T) {
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 100; i++ {
 		TestSurjectionAPI(t)
 	}
 }
 
 func TestSurjectionAPI(t *testing.T) {
-	for it := 0; it < 100; it++ {
+	for it := 0; it < 1; it++ {
 
 		var (
 			fixedInputTags [10]*FixedAssetTag
@@ -36,20 +35,8 @@ func TestSurjectionAPI(t *testing.T) {
 			outputIndex int = 3
 
 			seed [32]byte = Random256()
-			// callbackHanderFunc ContextCallbackFunc = func(msg string) { eCount++ }
 		)
-		//none, _ := ContextCreate(ContextNone)
-		//sign, _ := ContextCreate(ContextSign)
-		//vrfy, _ := ContextCreate(ContextVerify)
 		both, _ := ContextCreate(ContextBoth)
-		// none.ErrorCallback = &callbackHanderFunc
-		// sign.ErrorCallback = &callbackHanderFunc
-		// vrfy.ErrorCallback = &callbackHanderFunc
-		// both.ErrorCallback = &callbackHanderFunc
-		// none.IllegalCallback = &callbackHanderFunc
-		// sign.IllegalCallback = &callbackHanderFunc
-		// vrfy.IllegalCallback = &callbackHanderFunc
-		// both.IllegalCallback = &callbackHanderFunc
 
 		// generate test data
 		for i := 0; i < nInputs; i++ {
@@ -70,19 +57,7 @@ func TestSurjectionAPI(t *testing.T) {
 
 		var err error
 
-		// check allocate_initialized
-		/*	nIterations, proof, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 0, &fixedInputTags[0], 100, seed[:])
-			assert.Error(t, err)
-			assert.Empty(t, proof)
-			nIterations, proof, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 3, &fixedInputTags[0], 100, seed[:])
-			assert.NoError(t, err)
-			assert.NotEmpty(t, proof)
-			SurjectionproofDestroy(proof)
-
-			nIterations, proof, inputIndex, err = SurjectionproofAllocateInitialized(none, fixedInputTags[:], 3, &fixedInputTags[0], 100, seed[:])
-			assert.NoError(t, err)
-		*/
-		proof, inputIndex, err = SurjectionproofInitialize(both, fixedInputTags[:], 2, fixedInputTags[outputIndex], 100, seed[:])
+		nIterations, proof, inputIndex, err = SurjectionproofInitialize(both, fixedInputTags[:], 2, fixedInputTags[outputIndex], 100, seed[:])
 		assert.NoError(t, err)
 
 		//proofBytes, _ := SurjectionproofSerialize(none, proof)
@@ -106,44 +81,6 @@ func TestSurjectionAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 	}
-	/*
-	   CHECK(secp256k1_surjectionooproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 100, seed) == 0);
-	   CHECK(proof_on_heap == 0);
-	   CHECK(ecount == 0);
-	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) != 0);
-	   CHECK(proof_on_heap != 0);
-	   secp256k1_surjectionproof_destroy(prf_on_heap);
-	   CHECK(ecount == 0);
-
-	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, NULL, &input_index, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) == 0);
-	   CHECK(ecount == 1);
-	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, NULL, fixed_input_tags, n_inputs, 3, &fixed_input_tags[0], 100, seed) == 0);
-	   CHECK(proof_on_heap == 0);
-	   CHECK(ecount == 2);
-	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, NULL, n_inputs, 3, &fixed_input_tags[0], 100, seed) == 0);
-	   CHECK(proof_on_heap == 0);
-	   CHECK(ecount == 3);
-	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS + 1, 3, &fixed_input_tags[0], 100, seed) == 0);
-	   CHECK(proof_on_heap == 0);
-	   CHECK(ecount == 4);
-	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, n_inputs, &fixed_input_tags[0], 100, seed) != 0);
-	   CHECK(proof_on_heap != 0);
-	   secp256k1_surjectionproof_destroy(proof_on_heap);
-	   CHECK(ecount == 4);
-	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, n_inputs + 1, &fixed_input_tags[0], 100, seed) == 0);
-	   CHECK(proof_on_heap == 0);
-	   CHECK(ecount == 5);
-	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 3, NULL, 100, seed) == 0);
-	   CHECK(proof_on_heap == 0);
-	   CHECK(ecount == 6);
-	   CHECK((secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 0, seed) & 1) == 0);
-	   CHECK(proof_on_heap == 0);
-	   CHECK(ecount == 6);
-	   CHECK(secp256k1_surjectionproof_allocate_initialized(none, &proof_on_heap, &input_index, fixed_input_tags, n_inputs, 0, &fixed_input_tags[0], 100, NULL) == 0);
-	   CHECK(proof_on_heap == 0);
-	   CHECK(ecount == 7);
-	*/
-
 }
 
 func TestSurjectionGenVerifyLoop(t *testing.T) {
@@ -208,7 +145,7 @@ func TestSurjectionproofGenVerify(t *testing.T) {
 			outEphem, err = GeneratorGenerateBlinded(SharedContext(ContextBoth), outAsset.Slice(), outBlind[:])
 			assert.NoError(t, err)
 
-			nIters, proof, inputIndex, err := SurjectionproofAllocateInitialized(SharedContext(ContextBoth), inpAssets[:], nUsed, outAsset, 100, nil)
+			nIters, proof, inputIndex, err := SurjectionproofInitialize(SharedContext(ContextBoth), inpAssets[:], nUsed, outAsset, 100, nil)
 			assert.NoError(t, err)
 			if nUsed == 0 {
 				assert.True(t, nIters == 0)
@@ -241,96 +178,6 @@ func TestSurjectionproofGenVerify(t *testing.T) {
 		}
 		//assert.NoError(t, verified)
 	}
-	/*
-		static void test_gen_verify(size_t n_inputs, size_t n_used) {
-			unsigned char seed[32];
-			secp256k1_surjectionproof proof;
-			unsigned char serialized_proof[SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX];
-			unsigned char serialized_proof_trailing[SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX + 1];
-			size_t serialized_len = SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES_MAX;
-			secp256k1_fixed_asset_tag fixed_input_tags[1000];
-			secp256k1_generator ephemeral_input_tags[1000];
-			unsigned char *input_blinding_key[1000];
-			const size_t max_n_inputs = sizeof(fixed_input_tags) / sizeof(fixed_input_tags[0]) - 1;
-			size_t try_count = n_inputs * 100;
-			size_t key_index;
-			size_t input_index;
-			size_t i;
-			int result;
-
-		    // setup
-			CHECK(n_used <= n_inputs);
-			CHECK(n_inputs < max_n_inputs);
-			secp256k1_rand256(seed);
-
-			key_index = (((size_t) seed[0] << 8) + seed[1]) % n_inputs;
-
-			for (i = 0; i < n_inputs + 1; i++) {
-				input_blinding_key[i] = malloc(32);
-				secp256k1_rand256(input_blinding_key[i]);
-				// choose random fixed tag, except that for the output one copy from the key_index
-				if (i < n_inputs) {
-					secp256k1_rand256(fixed_input_tags[i].data);
-				} else {
-					memcpy(&fixed_input_tags[i], &fixed_input_tags[key_index], sizeof(fixed_input_tags[i]));
-				}
-				CHECK(secp256k1_generator_generate_blinded(ctx, &ephemeral_input_tags[i], fixed_input_tags[i].data, input_blinding_key[i]));
-			}
-
-			// test
-			result = secp256k1_surjectionproof_initialize(ctx, &proof, &input_index, fixed_input_tags, n_inputs, n_used, &fixed_input_tags[key_index], try_count, seed);
-			if (n_used == 0) {
-				CHECK(result == 0);
-				return;
-			}
-			CHECK(result > 0);
-			CHECK(input_index == key_index);
-
-			result = secp256k1_surjectionproof_generate(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs], input_index, input_blinding_key[input_index], input_blinding_key[n_inputs]);
-			CHECK(result == 1);
-
-			CHECK(secp256k1_surjectionproof_serialize(ctx, serialized_proof, &serialized_len, &proof));
-			CHECK(serialized_len == secp256k1_surjectionproof_serialized_size(ctx, &proof));
-			CHECK(serialized_len == SECP256K1_SURJECTIONPROOF_SERIALIZATION_BYTES(n_inputs, n_used));
-
-			// trailing garbage
-			memcpy(&serialized_proof_trailing, &serialized_proof, serialized_len);
-			serialized_proof_trailing[serialized_len] = seed[0];
-			CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof_trailing, serialized_len + 1) == 0);
-
-			CHECK(secp256k1_surjectionproof_parse(ctx, &proof, serialized_proof, serialized_len));
-			result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs]);
-			CHECK(result == 1);
-
-			// various fail cases
-			if (n_inputs > 1) {
-				result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs - 1]);
-				CHECK(result == 0);
-
-				// number of entries in ephemeral_input_tags array is less than proof.n_inputs
-				n_inputs -= 1;
-				result = secp256k1_surjectionproof_generate(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs], input_index, input_blinding_key[input_index], input_blinding_key[n_inputs]);
-				CHECK(result == 0);
-				result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs - 1]);
-				CHECK(result == 0);
-				n_inputs += 1;
-			}
-
-			for (i = 0; i < n_inputs; i++) {
-				// flip bit
-				proof.used_inputs[i / 8] ^= (1 << (i % 8));
-				result = secp256k1_surjectionproof_verify(ctx, &proof, ephemeral_input_tags, n_inputs, &ephemeral_input_tags[n_inputs]);
-				CHECK(result == 0);
-				// reset the bit
-				proof.used_inputs[i / 8] ^= (1 << (i % 8));
-			}
-
-			// cleanup
-			for (i = 0; i < n_inputs + 1; i++) {
-				free(input_blinding_key[i]);
-			}
-		}
-	*/
 }
 
 func TestSurjectionproofInitializeAndSerialize(t *testing.T) {
@@ -352,14 +199,14 @@ func TestSurjectionproofInitializeAndSerialize(t *testing.T) {
 		nMaxIterations := int(v["maxIterations"].(float64))
 		fixedOutputTag, err := FixedAssetTagFromHex(v["outputTag"].(string))
 		assert.NoError(t, err)
-		fixedInputTags := []*FixedAssetTag{}
+		var fixedInputTags []*FixedAssetTag
 		for _, inTag := range v["inputTags"].([]interface{}) {
 			fixedAssetTag, err := FixedAssetTagFromHex(inTag.(string))
 			assert.NoError(t, err)
 			fixedInputTags = append(fixedInputTags, fixedAssetTag)
 		}
 
-		proof, inputIndex, err := SurjectionproofInitialize(
+		nIters, proof, inputIndex, err := SurjectionproofInitialize(
 			ctx,
 			fixedInputTags,
 			nInputTagsToUse,
@@ -368,6 +215,7 @@ func TestSurjectionproofInitializeAndSerialize(t *testing.T) {
 			seed,
 		)
 		assert.NoError(t, err)
+		assert.NotZero(t, nIters)
 		expected := v["expected"].(map[string]interface{})
 		assert.Equal(t, int(expected["inputIndex"].(float64)), inputIndex)
 		assert.Equal(t, expected["proof"].(string), proof.String())
@@ -397,7 +245,7 @@ func TestSurjectionproofGenerateAndVerify(t *testing.T) {
 		assert.NoError(t, err)
 		ephemeralOutTag, err := GeneratorFromString(v["ephemeralOutputTag"].(string))
 		assert.NoError(t, err)
-		ephemeralInTags := []*Generator{}
+		var ephemeralInTags []*Generator
 		for _, inTag := range v["ephemeralInputTags"].([]interface{}) {
 			ephemeralInTag, err := GeneratorFromString(inTag.(string))
 			assert.NoError(t, err)
@@ -417,5 +265,136 @@ func TestSurjectionproofGenerateAndVerify(t *testing.T) {
 		assert.NotNil(t, proof)
 		assert.Equal(t, v["expected"].(string), proof.String())
 		assert.Equal(t, nil, SurjectionproofVerify(ctx, proof, ephemeralInTags, ephemeralOutTag))
+	}
+}
+
+func TestMaybeValidProof(t *testing.T) {
+	ctx, _ := ContextCreate(ContextBoth)
+	defer ContextDestroy(ctx)
+
+	outputAssets := [][]byte{
+		h2b("25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a"),
+		h2b("25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a"),
+		h2b("25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a"),
+	}
+	outputBfs := [][]byte{
+		h2b("06f82730207a7d18f56b67b8232a2183afec39080369b32b83e276017359c329"),
+		h2b("06f82730207a7d18f56b67b8232a2183afec39080369b32b83e276017359c329"),
+		h2b("b919547b0fe215b1cc259f97ae435d6140d6d68ab62b6ceae216af48a75ed8dd"),
+	}
+
+	inputAssets := [][]byte{
+		h2b("25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a"),
+		h2b("ed167d1b67cf8c72fdc105e7499003a06745e2c42c7d32ed33d3c6dae06a96dd"),
+	}
+	inputAbfs := [][]byte{
+		h2b("11a0828ded4fa0ebcffced49d7e8118ceba3484363486d43ce04fbbb756dfbf9"),
+		h2b("25dde14dd92c0594a3765667ad0ba3263298426e5c5cf38148587a9cd3b2f936"),
+	}
+
+	proofs := []string{
+		"0200033e70e62dc661225a43f244ac54110cf68a855544be210442ca47e91e5580705dc0955a93a957f4a336cfec7df190c7df0c84fe86f31b51cae3ea1877304cd5a85d516a4e921dd3645783cd41fca8d519783a57dc14767946af0d4fa223d65392",
+		"0200033e70e62dc661225a43f244ac54110cf68a855544be210442ca47e91e5580705dc0955a93a957f4a336cfec7df190c7df0c84fe86f31b51cae3ea1877304cd5a85d516a4e921dd3645783cd41fca8d519783a57dc14767946af0d4fa223d65392",
+		"0200033e8c1bb14b8bb3163102181b7f932515dad5e5ec02e6d32180c04aad77ec8f0ea12653e52cfc8f6d7854c3d671dda156a2dffa750a08f7c4a04b4644559879a46be28a1aa499f8b9068326f3a0bf764b4a8cb67d80f60d0d856118170e5787b4",
+	}
+
+	for j := 0; j < 100; j++ {
+		ress := make([]bool, 0, len(proofs))
+		for i, outputAsset := range outputAssets {
+			outputBf := outputBfs[i]
+
+			outputGenerator, err := GeneratorGenerateBlinded(ctx, outputAsset, outputBf)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			inputGenerators := make([]*Generator, 0, len(inputAssets))
+			for i, v := range inputAssets {
+				gen, err := GeneratorGenerateBlinded(ctx, v, inputAbfs[i])
+				if err != nil {
+					t.Fatal(err)
+				}
+				inputGenerators = append(inputGenerators, gen)
+			}
+
+			proof, err := SurjectionproofFromString(proofs[i])
+			if err != nil {
+				t.Fatal(err)
+			}
+			res := SurjectionproofVerify(ctx, proof, inputGenerators, outputGenerator)
+			ress = append(ress, res == nil)
+		}
+		fmt.Println(ress)
+	}
+}
+
+func h2b(str string) []byte {
+	buf, _ := hex.DecodeString(str)
+	return buf
+}
+
+func TestMaybeInvalidProof(t *testing.T) {
+	ctx := SharedContext(ContextBoth)
+
+	outputAssets := [][]byte{
+		h2b("25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a"),
+		h2b("25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a"),
+		h2b("25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a"),
+	}
+	outputBfs := [][]byte{
+		h2b("06f82730207a7d18f56b67b8232a2183afec39080369b32b83e276017359c329"),
+		h2b("06f82730207a7d18f56b67b8232a2183afec39080369b32b83e276017359c329"),
+		h2b("b919547b0fe215b1cc259f97ae435d6140d6d68ab62b6ceae216af48a75ed8dd"),
+	}
+
+	inputAssets := [][]byte{
+		h2b("25b251070e29ca19043cf33ccd7324e2ddab03ecc4ae0b5e77c4fc0e5cf6c95a"),
+		h2b("ed167d1b67cf8c72fdc105e7499003a06745e2c42c7d32ed33d3c6dae06a96dd"),
+	}
+	inputAbfs := [][]byte{
+		h2b("11a0828ded4fa0ebcffced49d7e8118ceba3484363486d43ce04fbbb756dfbf9"),
+		h2b("25dde14dd92c0594a3765667ad0ba3263298426e5c5cf38148587a9cd3b2f936"),
+	}
+
+	proofs := []string{
+		"0200033e70e62dc661225a43f244ac54110cf68a855544be210442ca47e91e5580705dc0955a93a957f4a336cfec7df190c7df0c84fe86f31b51cae3ea1877304cd5a85d516a4e921dd3645783cd41fca8d519783a57dc14767946af0d4fa223d65392",
+		"0200033e70e62dc661225a43f244ac54110cf68a855544be210442ca47e91e5580705dc0955a93a957f4a336cfec7df190c7df0c84fe86f31b51cae3ea1877304cd5a85d516a4e921dd3645783cd41fca8d519783a57dc14767946af0d4fa223d65392",
+		"0200033e8c1bb14b8bb3163102181b7f932515dad5e5ec02e6d32180c04aad77ec8f0ea12653e52cfc8f6d7854c3d671dda156a2dffa750a08f7c4a04b4644559879a46be28a1aa499f8b9068326f3a0bf764b4a8cb67d80f60d0d856118170e5787b4",
+	}
+
+	for i, outputAsset := range outputAssets {
+		outputBf := outputBfs[i]
+
+		outputGenerator, err := GeneratorGenerateBlinded(ctx, outputAsset, outputBf)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		inputGenerators := make([]*Generator, 0, len(inputAssets))
+		for i, v := range inputAssets {
+			gen, err := GeneratorGenerateBlinded(ctx, v, inputAbfs[i])
+			if err != nil {
+				t.Fatal(err)
+			}
+			inputGenerators = append(inputGenerators, gen)
+		}
+
+		// Changing byte by byte making proofs invalid, then verifying to confirm each time proof is invalid
+		proofBytes, _ := hex.DecodeString(proofs[i])
+		for i := 0; i < len(proofBytes); i++ {
+			if proofBytes[i] < 255 {
+				proofBytes[i] = proofBytes[i] + 1
+			} else {
+				proofBytes[i] = 0
+			}
+
+			proof, err := SurjectionproofParse(SharedContext(ContextNone), proofBytes)
+			if err == nil {
+				res := SurjectionproofVerify(ctx, proof, inputGenerators, outputGenerator)
+				if res == nil {
+					t.Fatal("False successful verification")
+				}
+			}
+		}
 	}
 }
