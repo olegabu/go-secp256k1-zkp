@@ -14,7 +14,7 @@ package secp256k1
 #include <stdint.h>
 #include "basic-config.h"
 #include "include/secp256k1.h"
-#include "include/secp256k1_commitment.h"
+#include "include/secp256k1_rangeproof.h"
 #include "scalar_impl.h"
 static const unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
 static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
@@ -163,41 +163,33 @@ func CommitmentFromString(str string) (com *Commitment, err error) {
 	return
 }
 
-/** Generate a commitment
+/** Generate a pedersen commitment.
+ *  Returns 1: Commitment successfully created.
+ *          0: Error. The blinding factor is larger than the group order
+ *             (probability for random 32 byte number < 2^-127) or results in the
+ *             point at infinity. Retry with a different factor.
+ *  In:     ctx:        pointer to a context object, initialized for signing and Pedersen commitment (cannot be NULL)
+ *          blind:      pointer to a 32-byte blinding factor (cannot be NULL)
+ *          value:      unsigned 64-bit integer value to commit to.
+ *          gen:        additional generator 'h'
+ *  Out:    commit:     pointer to the commitment (cannot be NULL)
  *
- *      In:
- *		 ctx:  pointer to a context object (cannot be NULL)
- *             blind:  32-byte blinding factor (cannot be NULL)
- *	       value:  unsigned 64-bit integer value to commit to.
- *    	   value_gen:  value generator 'h'
- *         blind_gen:  blinding factor generator 'g'
- *
- *  	Out:
- *            commit:  pointer to the commitment (cannot be NULL)
- *
- *      Returns:
- *      	   1:  Commitment successfully created.
- *                 0:  Error. The blinding factor is larger than the group order *
- *                     (probability for random 32 byte number < 2^-127) or results in the
- *                     point at infinity. Retry with a different factor.
- *
- *      Blinding factors can be generated and verified in the same way as secp256k1
- *      private keys for ECDSA.
+ *  Blinding factors can be generated and verified in the same way as secp256k1 private keys for ECDSA.
  */
-//  SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
-// 		const secp256k1_context* ctx,
-// 		secp256k1_pedersen_commitment *commit,
-// 		const unsigned char *blind,
-// 		uint64_t value,
-// 		const secp256k1_generator *value_gen,
-// 		const secp256k1_generator *blind_gen
-//  ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6);
+/*
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit(
+	const secp256k1_context* ctx,
+	secp256k1_pedersen_commitment *commit,
+	const unsigned char *blind,
+	uint64_t value,
+	const secp256k1_generator *gen
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
+*/
 func Commit(
 	context *Context,
 	blind []byte,
 	value uint64,
 	valuegen *Generator,
-	blindgen *Generator,
 ) (
 	commit *Commitment,
 	err error,
@@ -208,8 +200,7 @@ func Commit(
 		commit.com,
 		cBuf(blind),
 		C.uint64_t(value),
-		valuegen.gen,
-		blindgen.gen) {
+		valuegen.gen) {
 
 		return nil, errors.New(ErrorCommitmentCommit)
 	}
@@ -230,6 +221,7 @@ func Commit(
  *
  *  Blinding factors can be generated and verified in the same way as secp256k1 private keys for ECDSA.
  */
+/* TODO
 func BlindCommit(
 	context *Context,
 	blind []byte,
@@ -253,6 +245,7 @@ func BlindCommit(
 	}
 	return commit, nil
 }
+*/
 
 /** Computes the sum of multiple positive and negative blinding factors.
  *
@@ -318,6 +311,7 @@ func BlindSum(
  *         ncnt:       number of commitments pointed to by ncommits.
  *  Out:   commit_out: pointer to the commitment (cannot be NULL)
  */
+/* TODO
 func CommitSum(
 	context *Context,
 	poscommits []*Commitment,
@@ -350,6 +344,7 @@ func CommitSum(
 
 	return
 }
+*/
 
 /** Verify a tally of Pedersen commitments
  * Returns 1: commitments successfully sum to zero.
@@ -486,6 +481,7 @@ func BlindGeneratorBlindSum(
  *           blind_gen: blinding factor generator 'g'
  *       switch_pubkey: pointer to public key 'j'
  */
+/* TODO
 func BlindSwitch(
 	context *Context,
 	blind []byte,
@@ -509,35 +505,7 @@ func BlindSwitch(
 		err = errors.New(ErrorCommitmentCommit)
 	}
 	return
-}
-
-/** Converts a pedersent commit to a pubkey
- *
- * Returns 1: Public key succesfully computed.
- *         0: Error.
- *
- * In:                 ctx: pointer to a context object
- *                   commit: pointer to a single commit
- * Out:              pubkey: resulting pubkey
- *
- */
-func CommitmentToPublicKey(
-	context *Context,
-	commit *Commitment,
-) (
-	pubkey *PublicKey,
-	err error,
-) {
-	pubkey = newPublicKey()
-	if 1 != C.secp256k1_pedersen_commitment_to_pubkey(
-		context.ctx,
-		pubkey.pk,
-		commit.com) {
-
-		return nil, errors.New(ErrorCommitmentPubkey)
-	}
-	return pubkey, nil
-}
+}*/
 
 /** SumBlindGeneratorBlind takes a value (64-bit int), and both
  *  value's and asset's blinding factors and computes using formula:

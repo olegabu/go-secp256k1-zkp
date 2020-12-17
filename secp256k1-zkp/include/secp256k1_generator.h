@@ -21,22 +21,16 @@ typedef struct {
     unsigned char data[64];
 } secp256k1_generator;
 
-/** Standard secp256k1 generator G */
-SECP256K1_API extern const secp256k1_generator secp256k1_generator_const_g;
-
-/** Alternate secp256k1 generator from Elements Alpha */
-SECP256K1_API extern const secp256k1_generator secp256k1_generator_const_h;
-
 /** Parse a 33-byte generator byte sequence into a generator object.
  *
  *  Returns: 1 if input contains a valid generator.
  *  Args: ctx:      a secp256k1 context object.
- *  Out:  commit:   pointer to the output generator object
+ *  Out:  gen:      pointer to the output generator object
  *  In:   input:    pointer to a 33-byte serialized generator
  */
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_parse(
     const secp256k1_context* ctx,
-    secp256k1_generator* commit,
+    secp256k1_generator* gen,
     const unsigned char *input
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
@@ -45,12 +39,12 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_generator_parse(
  *  Returns: 1 always.
  *  Args:   ctx:        a secp256k1 context object.
  *  Out:    output:     a pointer to a 33-byte byte array
- *  In:     commit:     a pointer to a generator
+ *  In:     gen:        a pointer to a generator
  */
 SECP256K1_API int secp256k1_generator_serialize(
     const secp256k1_context* ctx,
     unsigned char *output,
-    const secp256k1_generator* commit
+    const secp256k1_generator* gen
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
 
 /** Generate a generator for the curve.

@@ -18,20 +18,39 @@ package secp256k1
 #define ENABLE_MODULE_SCHNORRSIG 1
 #define ENABLE_MODULE_WHITELIST 1
 #define ENABLE_MODULE_SURJECTIONPROOF 1
+#define ENABLE_MODULE_EXTRAKEYS 1
+#define ENABLE_MODULE_MUSIG 1
+#define ECMULT_GEN_PREC_BITS 4
 #include "src/secp256k1.c"
 #include "src/testrand_impl.h"
 #include "src/util.h"
 #include "src/hash_impl.h"
+#include "scalar_impl.h"
+#include "group_impl.h"
+#include "field_impl.h"
 inline secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 inline void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 inline void freePubkeyArray(secp256k1_pubkey * *a) { free(a); }
 //long long getSelfThreadId64() { return (long long)pthread_self; }
 //uint32_t getSelfThreadId() { return (uint32_t)syscall(SYS_gettid); }
+int commitment_to_pubkey(secp256k1_pubkey* pubkey, const secp256k1_pedersen_commitment* commit) {
+    secp256k1_ge Q;
+    secp256k1_fe fe;
+    memset(pubkey, 0, sizeof(*pubkey));
+    secp256k1_fe_set_b32(&fe, &commit->data[1]);
+    secp256k1_ge_set_xquad(&Q, &fe);
+    if (commit->data[0] & 1) {
+        secp256k1_ge_neg(&Q, &Q);
+    }
+    secp256k1_pubkey_save(pubkey, &Q);
+    secp256k1_ge_clear(&Q);
+    return 1;
+}
 void random_scalar_order256(unsigned char *out) {
 	do {
         int overflow = 0;
         secp256k1_scalar num;
-        secp256k1_rand256(out);
+        secp256k1_testrand256(out);
         secp256k1_scalar_set_b32(&num, out, &overflow);
 		if (!overflow && !secp256k1_scalar_is_zero(&num)) break;
     }
@@ -41,7 +60,6 @@ void random_scalar_order256(unsigned char *out) {
 import "C"
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -152,9 +170,9 @@ func newEcdsaRecoverableSignature() *EcdsaRecoverableSignature {
 var ctxmap map[uint]*Context
 
 func init() {
-	seed := make([]byte, 16)
-	rand.Read(seed)
-	C.secp256k1_rand_seed(cBuf(seed))
+	//seed := make([]byte, 16)
+	//rand.Read(seed)
+	//C.secp256k1_rand_seed(cBuf(seed))
 	ctxmap = make(map[uint]*Context)
 }
 
@@ -495,7 +513,7 @@ func Ecdh(ctx *Context, pubKey *PublicKey, privKey []byte) (int, []byte, error) 
 		return 0, []byte{}, errors.New(ErrorPrivateKeySize)
 	}
 	secret := make([]byte, LenPrivateKey)
-	result := int(C.secp256k1_ecdh(ctx.ctx, cBuf(secret[:]), pubKey.pk, cBuf(privKey[:])))
+	result := int(C.secp256k1_ecdh(ctx.ctx, cBuf(secret[:]), pubKey.pk, cBuf(privKey[:]), nil, nil))
 	if result != 1 {
 		return result, []byte{}, errors.New(ErrorEcdh)
 	}
@@ -615,7 +633,8 @@ void random_scalar_order256(secp256k1_scalar *num) {
 */
 // Generate a pseudorandom 32-byte array with long sequences of zero and one bits
 func Random256() (rnd32 [32]byte) {
-	C.secp256k1_rand256(cBuf(rnd32[:]))
+	//C.secp256k1_rand256(cBuf(rnd32[:]))
+	C.random_scalar_order256(cBuf(rnd32[:]))
 	return
 }
 
@@ -653,3 +672,31 @@ func (context *Context) PublicKeyFromHex(str string) (pubkey *PublicKey) {
 func GetThreadId64() uint64 {
 	return uint64(C.getSelfThreadId64())
 }*/
+
+/** Converts a pedersent commit to a pubkey
+ *
+ * Returns 1: Public key succesfully computed.
+ *         0: Error.
+ *
+ * In:                 ctx: pointer to a context object
+ *                   commit: pointer to a single commit
+ * Out:              pubkey: resulting pubkey
+ *
+ */
+func CommitmentToPublicKey(
+	context *Context,
+	commit *Commitment,
+) (
+	pubkey *PublicKey,
+	err error,
+) {
+	pubkey = newPublicKey()
+	if 1 != C.commitment_to_pubkey(
+		pubkey.pk,
+		commit.com) {
+
+		return nil, errors.New(ErrorCommitmentPubkey)
+	}
+
+	return pubkey, nil
+}
