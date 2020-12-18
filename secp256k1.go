@@ -58,7 +58,6 @@ void random_scalar_order256(unsigned char *out) {
 }
 */
 import "C"
-
 import (
 	"encoding/hex"
 	"errors"
@@ -116,6 +115,19 @@ const (
 
 	ErrorPublicKeyParse string = "Unable to parse this public key"
 )
+
+// Callbacks for converting libsecp256k1 internal faults into
+// recoverable Go panics.
+
+//export secp256k1GoPanicIllegal
+func secp256k1GoPanicIllegal(msg *C.char, data unsafe.Pointer) {
+	panic("illegal argument: " + C.GoString(msg))
+}
+
+//export secp256k1GoPanicError
+func secp256k1GoPanicError(msg *C.char, data unsafe.Pointer) {
+	panic("internal error: " + C.GoString(msg))
+}
 
 // Context wraps a *secp256k1_context, required to use all
 // functions. It can be initialized for signing, verification,
@@ -699,4 +711,69 @@ func CommitmentToPublicKey(
 	}
 
 	return pubkey, nil
+}
+
+/** Opaque data structure that holds rewriteable "scratch space"
+ *
+ *  The purpose of this structure is to replace dynamic memory allocations,
+ *  because we target architectures where this may not be available. It is
+ *  essentially a resizable (within specified parameters) block of bytes,
+ *  which is initially created either by memory allocation or TODO as a pointer
+ *  into some fixed rewritable space.
+ *
+ *  Unlike the context object, this cannot safely be shared between threads
+ *  without additional synchronization logic.
+ *
+typedef struct secp256k1_scratch_space_struct secp256k1_scratch_space;
+*/
+type ScratchSpace = C.secp256k1_scratch_space
+
+/** Create a secp256k1 scratch space object.
+ *
+ *  Returns: a newly created scratch space.
+ *  Args: ctx:  an existing context object (cannot be NULL)
+ *  In:   size: amount of memory to be available as scratch space. Some extra
+ *              (<100 bytes) will be allocated for extra accounting.
+ *
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT secp256k1_scratch_space* secp256k1_scratch_space_create(
+	const secp256k1_context* ctx,
+	size_t size
+) SECP256K1_ARG_NONNULL(1);
+*/
+func ScratchSpaceCreate(
+	ctx *Context,
+	size int,
+) (
+	scratch *ScratchSpace,
+	err error,
+) {
+	scratch = C.secp256k1_scratch_space_create(
+		ctx.ctx,
+		C.size_t(size),
+	)
+	if scratch == nil {
+		err = errors.New("failed to create scratch space")
+	}
+	return
+}
+
+/** Destroy a secp256k1 scratch space.
+ *
+ *  The pointer may not be used afterwards.
+ *  Args:       ctx: a secp256k1 context object.
+ *          scratch: space to destroy
+ *
+SECP256K1_API void secp256k1_scratch_space_destroy(
+	const secp256k1_context* ctx,
+	secp256k1_scratch_space* scratch
+) SECP256K1_ARG_NONNULL(1);
+*/
+func ScratchSpaceDestroy(
+	ctx *Context,
+	scratch *ScratchSpace,
+) {
+	C.secp256k1_scratch_space_destroy(
+		ctx.ctx,
+		scratch,
+	)
 }
