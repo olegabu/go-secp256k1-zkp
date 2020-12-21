@@ -30,6 +30,8 @@ const (
 	ErrorMusigPartialSign               string = "error calling MusigPartialSign"
 	ErrorMusigPartialSigVerify          string = "error calling MusigPartialSigVerify"
 	ErrorMusigPartialSigCombine         string = "error calling MusigPartialSigCombine"
+	ErrorMusigPartialSigAdapt           string = "error calling MusigPartialSigAdapt"
+	ErrorMusigExtractSecretAdaptor      string = "error calling MusigExtractSecretAdaptor"
 )
 
 /** This module implements a Schnorr-based multi-signature scheme called MuSig
@@ -793,8 +795,7 @@ func MusigPartialSigCombine(
  *      sec_adaptor32: 32-byte secret adaptor to add to the partial signature (cannot
  *                     be NULL)
  *       nonce_parity: the `nonce_parity` output of `musig_session_combine_nonces`
- */
-/*
+ *
 SECP256K1_API int secp256k1_musig_partial_sig_adapt(
     const secp256k1_context* ctx,
     secp256k1_musig_partial_signature *adaptor_sig,
@@ -803,6 +804,30 @@ SECP256K1_API int secp256k1_musig_partial_sig_adapt(
     int nonce_parity
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 */
+func MusigPartialSigAdapt(
+	ctx *Context,
+	partialsig *MusigPartialSignature,
+	secadaptor32 []byte,
+	nonceparity int,
+) (
+	adaptorsig *MusigPartialSignature,
+	err error,
+) {
+	var adsig MusigPartialSignature
+	if 1 != C.secp256k1_musig_partial_sig_adapt(
+		ctx.ctx,
+		&adsig,
+		partialsig,
+		secadaptor32,
+		nonceparity,
+	) {
+		err = errors.New(ErrorMusigPartialSigAdapt)
+	} else {
+		adaptorsig = &adsig
+	}
+
+	return
+}
 
 /** Extracts a secret adaptor from a MuSig, given all parties' partial
  *  signatures. This function will not fail unless given grossly invalid data; if it
@@ -818,8 +843,7 @@ SECP256K1_API int secp256k1_musig_partial_sig_adapt(
  *       partial_sigs: array of partial signatures (cannot be NULL)
  *     n_partial_sigs: number of elements in partial_sigs array
  *   nonce_parity: the `nonce_parity` output of `musig_session_combine_nonces`
- */
-/*
+ *
 SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_extract_secret_adaptor(
     const secp256k1_context* ctx,
     unsigned char *sec_adaptor32,
@@ -829,3 +853,30 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_extract_secret_ad
     int nonce_parity
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
 */
+func MusigExtractSecretAdaptor(
+	ctx *Context,
+	sig64 []byte,
+	partialsigs []*MusigPartialSignature,
+	nonceparity int,
+) (
+	secadaptor32 [32]byte,
+	err error,
+) {
+	sigs := make([]MusigPartialSignature, len(partialsigs))
+	for i, sig := range partialsigs {
+		sigs[i] = *sig
+	}
+
+	if 1 != C.secp256k1_musig_partial_sig_adapt(
+		ctx.ctx,
+		cBuf(secadaptor32[:]),
+		cBuf(sig64),
+		&sigs[0],
+		C.size_t(len(sigs)),
+		nonceparity,
+	) {
+		err = errors.New(ErrorMusigExtractSecretAdaptor)
+	}
+
+	return
+}
