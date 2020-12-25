@@ -29,7 +29,7 @@ func TestCommitmentAPI(t *testing.T) {
 	blindLen, err := rand.Read(blind[:])
 	fmt.Printf("blind=%v, blindLen=%v\n", blind, blindLen)
 
-	comNone, err := Commit(ctxNone, blind[:], value, &GeneratorH, &GeneratorG)
+	comNone, err := Commit(ctxNone, blind[:], value, &GeneratorH)
 	assert.NoError(t, err)
 	assert.NotNil(t, comNone)
 	assert.IsType(t, Commitment{}, *comNone)
@@ -50,19 +50,19 @@ func TestCommitmentAPI(t *testing.T) {
 	assert.NotNil(t, comParse)
 	fmt.Printf("comParse=%v\n", *comParse)
 
-	comSign, err := Commit(ctxSign, blind[:], value, &GeneratorH, &GeneratorG)
+	comSign, err := Commit(ctxSign, blind[:], value, &GeneratorH)
 	assert.NoError(t, err)
 	assert.NotNil(t, comSign)
 	assert.IsType(t, Commitment{}, *comSign)
 	fmt.Printf("comSign=%v\n", *comSign)
 
-	comVrfy, err := Commit(ctxVrfy, blind[:], value, &GeneratorH, &GeneratorG)
+	comVrfy, err := Commit(ctxVrfy, blind[:], value, &GeneratorH)
 	assert.NoError(t, err)
 	assert.NotNil(t, comVrfy)
 	assert.IsType(t, Commitment{}, *comVrfy)
 	fmt.Printf("comVrfy=%v\n", *comVrfy)
 
-	comBoth, err := Commit(ctxBoth, blind[:], value, &GeneratorH, &GeneratorG)
+	comBoth, err := Commit(ctxBoth, blind[:], value, &GeneratorH)
 	assert.NoError(t, err)
 	assert.IsType(t, Commitment{}, *comBoth)
 	fmt.Printf("comBoth=%v\n", *comBoth)

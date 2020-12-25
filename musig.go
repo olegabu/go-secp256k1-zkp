@@ -13,6 +13,14 @@ package secp256k1
 #cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 #include <stdlib.h>
 #include "include/secp256k1_musig.h"
+secp256k1_musig_session_signer_data* makeSigners(int size) { return !size ? NULL : calloc(sizeof(secp256k1_musig_session_signer_data), size); }
+void setSigners(secp256k1_musig_session_signer_data *a, secp256k1_musig_session_signer_data* d, int i) { if (a) a[i] = *d; }
+secp256k1_musig_session_signer_data* getSigners(secp256k1_musig_session_signer_data *a, int i) { return !a ? NULL : &a[i]; }
+void freeSigners(secp256k1_musig_session_signer_data *a) { if (a) free(a); }
+unsigned char** makeBytes(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
+void setBytes(unsigned char** a, unsigned char* d, int i) { if (a) a[i] = d; }
+unsigned char* getBytes(unsigned char** a, int i) { return !a ? NULL : a[i]; }
+void freeBytes(unsigned char** a) { if (a) free(a); }
 */
 import "C"
 import "errors"
@@ -23,7 +31,7 @@ const (
 	ErrorMusigSessionInit               string = "error calling MusigSessionInit"
 	ErrorMusigSessionGetPublicNonce     string = "error calling MusigSessionGetPublicNonce"
 	ErrorMusigSessionInitVerifier       string = "error calling MusigSessionInitVerifier"
-	ErrorMusigSessionSetNonce           string = "error calling MusigSessionSetNonce"
+	ErrorMusigSetNonce                  string = "error calling MusigSetNonce"
 	ErrorMusigSessionCombineNonces      string = "error calling MusigSessionCombineNonces"
 	ErrorMusigPartialSignatureSerialize string = "error calling MusigPartialSignatureSerialize"
 	ErrorMusigPartialSignatureParse     string = "error calling MusigPartialSignatureParse"
@@ -42,7 +50,7 @@ const (
  * The documentation in this include file is for reference and may not be sufficient
  * for users to begin using the library. A full description of API usage can be found
  * in src/modules/musig/musig.md
- */
+**/
 
 /** Data structure containing auxiliary data generated in `pubkey_combine` and
  *  required for `session_*_init`.
@@ -65,7 +73,7 @@ typedef struct {
     unsigned char tweak[32];
     int internal_key_parity;
 } secp256k1_musig_pre_session;
-*/
+**/
 type MusigPreSession = C.secp256k1_musig_pre_session
 
 /** Data structure containing data related to a signing session resulting in a single
@@ -115,7 +123,7 @@ typedef struct {
     secp256k1_xonly_pubkey combined_nonce;
     int combined_nonce_parity;
 } secp256k1_musig_session;
-*/
+**/
 type MusigSession = C.secp256k1_musig_session
 
 /** Data structure containing data on all signers in a single session.
@@ -151,7 +159,7 @@ typedef struct {
     secp256k1_xonly_pubkey nonce;
     unsigned char nonce_commitment[32];
 } secp256k1_musig_session_signer_data;
-*/
+**/
 type MusigSessionSignerData = C.secp256k1_musig_session_signer_data
 
 /** Opaque data structure that holds a MuSig partial signature.
@@ -166,7 +174,7 @@ type MusigSessionSignerData = C.secp256k1_musig_session_signer_data
 typedef struct {
     unsigned char data[32];
 } secp256k1_musig_partial_signature;
-*/
+**/
 type MusigPartialSignature = C.secp256k1_musig_partial_signature
 
 /** Computes a combined public key and the hash of the given public keys.
@@ -193,7 +201,7 @@ SECP256K1_API int secp256k1_musig_pubkey_combine(
     const secp256k1_xonly_pubkey *pubkeys,
     size_t n_pubkeys
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
-*/
+**/
 func MusigPubkeyCombine(
 	ctx *Context,
 	scratch *ScratchSpace,
@@ -263,7 +271,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_pubkey_tweak_add(
     const secp256k1_xonly_pubkey *internal_pubkey,
     const unsigned char *tweak32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
-*/
+**/
 func MusigPubkeyTweakAdd(
 	ctx *Context,
 	presession *MusigPreSession,
@@ -328,7 +336,7 @@ SECP256K1_API int secp256k1_musig_session_init(
     size_t my_index,
     const unsigned char *seckey
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(7) SECP256K1_ARG_NONNULL(8) SECP256K1_ARG_NONNULL(11);
-*/
+**/
 func MusigSessionInit(
 	ctx *Context,
 	sessionid32 []byte,
@@ -340,16 +348,19 @@ func MusigSessionInit(
 	seckey32 []byte,
 ) (
 	session *MusigSession,
-	signers *MusigSessionSignerData,
+	signers []*MusigSessionSignerData,
 	noncecommitment32 [32]byte,
 	err error,
 ) {
 	var ses MusigSession
-	var sig MusigSessionSignerData
+
+	csigs := C.makeSigners(C.int(nsigners))
+	defer C.freeSigners(csigs)
+
 	if 1 != C.secp256k1_musig_session_init(
 		ctx.ctx,
 		&ses,
-		&sig,
+		csigs,
 		cBuf(noncecommitment32[:]),
 		cBuf(sessionid32),
 		cBuf(msg32),
@@ -361,7 +372,13 @@ func MusigSessionInit(
 	) {
 		err = errors.New(ErrorMusigSessionInit)
 	} else {
-		session, signers = &ses, &sig
+		session = &ses
+		sigdata := make([]MusigSessionSignerData, nsigners)
+		signers = make([]*MusigSessionSignerData, nsigners)
+		for i := 0; i < nsigners; i++ {
+			sigdata[i] = *(C.getSigners(csigs, C.int(i)))
+			signers[i] = &sigdata[i]
+		}
 	}
 
 	return
@@ -398,32 +415,48 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_session_get_publi
     size_t n_commitments,
     const unsigned char *msg32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
-*/
+**/
 func MusigSessionGetPublicNonce(
 	ctx *Context,
 	session *MusigSession,
-	signers *MusigSessionSignerData,
+	signers []*MusigSessionSignerData,
 	commitments [][]byte,
 	msg32 []byte,
 ) (
 	nonce32 [32]byte,
 	err error,
 ) {
-	coms := make([]*C.uchar, len(commitments))
-	for i, com := range commitments {
-		coms[i] = cBuf(com)
+	nsigners := len(signers)
+	csigs := C.makeSigners(C.int(nsigners))
+	defer C.freeSigners(csigs)
+	for i := 0; i < nsigners; i++ {
+		C.setSigners(csigs, signers[i], C.int(i))
+	}
+
+	/*coms := make([]*C.uchar, len(commitments))
+	for j, com := range commitments {
+		coms[j] = cBuf(com)
+	}*/
+	coms := C.makeBytes(C.int(len(commitments)))
+	defer C.freeBytes(coms)
+	for j, com := range commitments {
+		C.setBytes(coms, cBuf(com), C.int(j))
 	}
 
 	if 1 != C.secp256k1_musig_session_get_public_nonce(
 		ctx.ctx,
 		session,
-		signers,
+		csigs,
 		cBuf(nonce32[:]),
-		&coms[0],
-		C.size_t(len(coms)),
+		coms,
+		C.size_t(len(commitments)),
 		cBuf(msg32),
 	) {
 		err = errors.New(ErrorMusigSessionGetPublicNonce)
+	} else {
+		for k := 0; k < nsigners; k++ {
+			*(signers[k]) = *(C.getSigners(csigs, C.int(k)))
+		}
 	}
 
 	return
@@ -459,7 +492,7 @@ SECP256K1_API int secp256k1_musig_session_init_verifier(
     const unsigned char *const *commitments,
     size_t n_signers
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5) SECP256K1_ARG_NONNULL(6) SECP256K1_ARG_NONNULL(7);
-*/
+**/
 func MusigSessionInitVerifier(
 	ctx *Context,
 	msg32 []byte,
@@ -469,11 +502,11 @@ func MusigSessionInitVerifier(
 	nsigners int,
 ) (
 	session *MusigSession,
-	signers *MusigSessionSignerData,
+	signers []MusigSessionSignerData,
 	err error,
 ) {
 	var ses MusigSession
-	var sig MusigSessionSignerData
+	signers = make([]MusigSessionSignerData, nsigners)
 
 	coms := make([]*C.uchar, len(commitments))
 	for i, com := range commitments {
@@ -483,7 +516,7 @@ func MusigSessionInitVerifier(
 	if 1 != C.secp256k1_musig_session_init_verifier(
 		ctx.ctx,
 		&ses,
-		&sig,
+		&signers[0],
 		cBuf(msg32),
 		combinedpubkey,
 		presession,
@@ -492,7 +525,7 @@ func MusigSessionInitVerifier(
 	) {
 		err = errors.New(ErrorMusigSessionInitVerifier)
 	} else {
-		session, signers = &ses, &sig
+		session = &ses
 	}
 
 	return
@@ -514,8 +547,8 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_set_nonce(
     secp256k1_musig_session_signer_data *signer,
     const unsigned char *nonce32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
-*/
-func MusigSessionSetNonce(
+**/
+func MusigSetNonce(
 	ctx *Context,
 	signer *MusigSessionSignerData,
 	nonce32 []byte,
@@ -527,7 +560,7 @@ func MusigSessionSetNonce(
 		signer,
 		cBuf(nonce32),
 	) {
-		err = errors.New(ErrorMusigSessionSetNonce)
+		err = errors.New(ErrorMusigSetNonce)
 	}
 
 	return
@@ -560,30 +593,41 @@ SECP256K1_API int secp256k1_musig_session_combine_nonces(
     int *nonce_parity,
     const secp256k1_pubkey *adaptor
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
-*/
+**/
 func MusigSessionCombineNonces(
 	ctx *Context,
 	session *MusigSession,
-	signers *MusigSessionSignerData,
-	nsigners int,
+	signers []*MusigSessionSignerData,
+	adaptor *PublicKey,
 ) (
 	nonceparity int,
-	adaptor *PublicKey,
 	err error,
 ) {
 	var par C.int
-	pub := newPublicKey()
+
+	nsigners := len(signers)
+	csigs := C.makeSigners(C.int(nsigners))
+	defer C.freeSigners(csigs)
+	for i := 0; i < nsigners; i++ {
+		C.setSigners(csigs, signers[i], C.int(i))
+	}
+
+	var adaptorpk *C.secp256k1_pubkey
+	if adaptor != nil {
+		adaptorpk = adaptor.pk
+	}
+
 	if 1 != C.secp256k1_musig_session_combine_nonces(
 		ctx.ctx,
 		session,
-		signers,
-		C.size_t(nsigners),
+		csigs,
+		C.size_t(len(signers)),
 		&par,
-		pub.pk,
+		adaptorpk,
 	) {
 		err = errors.New(ErrorMusigSessionCombineNonces)
 	} else {
-		nonceparity, adaptor = int(par), pub
+		nonceparity = int(par)
 	}
 
 	return
@@ -601,7 +645,7 @@ SECP256K1_API int secp256k1_musig_partial_signature_serialize(
     unsigned char *out32,
     const secp256k1_musig_partial_signature* sig
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
-*/
+**/
 func MusigPartialSignatureSerialize(
 	ctx *Context,
 	sig *MusigPartialSignature,
@@ -636,7 +680,7 @@ SECP256K1_API int secp256k1_musig_partial_signature_parse(
     secp256k1_musig_partial_signature* sig,
     const unsigned char *in32
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
-*/
+**/
 func MusigPartialSignatureParse(
 	ctx *Context,
 	in32 []byte,
@@ -669,7 +713,7 @@ SECP256K1_API int secp256k1_musig_partial_sign(
     const secp256k1_musig_session *session,
     secp256k1_musig_partial_signature *partial_sig
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3);
-*/
+**/
 func MusigPartialSign(
 	ctx *Context,
 	session *MusigSession,
@@ -715,7 +759,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_partial_sig_verif
     const secp256k1_musig_partial_signature *partial_sig,
     const secp256k1_xonly_pubkey *pubkey
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4) SECP256K1_ARG_NONNULL(5);
-*/
+**/
 func MusigPartialSigVerify(
 	ctx *Context,
 	session *MusigSession,
@@ -757,7 +801,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_partial_sig_combi
     const secp256k1_musig_partial_signature *partial_sigs,
     size_t n_sigs
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
-*/
+**/
 func MusigPartialSigCombine(
 	ctx *Context,
 	session *MusigSession,
@@ -775,7 +819,7 @@ func MusigPartialSigCombine(
 		ctx.ctx,
 		session,
 		cBuf(sig64[:]),
-		sigs,
+		&sigs[0],
 		C.size_t(len(sigs)),
 	) {
 		err = errors.New(ErrorMusigPartialSigCombine)
@@ -803,7 +847,7 @@ SECP256K1_API int secp256k1_musig_partial_sig_adapt(
     const unsigned char *sec_adaptor32,
     int nonce_parity
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
-*/
+**/
 func MusigPartialSigAdapt(
 	ctx *Context,
 	partialsig *MusigPartialSignature,
@@ -818,8 +862,8 @@ func MusigPartialSigAdapt(
 		ctx.ctx,
 		&adsig,
 		partialsig,
-		secadaptor32,
-		nonceparity,
+		cBuf(secadaptor32),
+		C.int(nonceparity),
 	) {
 		err = errors.New(ErrorMusigPartialSigAdapt)
 	} else {
@@ -852,7 +896,7 @@ SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_musig_extract_secret_ad
     size_t n_partial_sigs,
     int nonce_parity
 ) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(4);
-*/
+**/
 func MusigExtractSecretAdaptor(
 	ctx *Context,
 	sig64 []byte,
@@ -867,13 +911,13 @@ func MusigExtractSecretAdaptor(
 		sigs[i] = *sig
 	}
 
-	if 1 != C.secp256k1_musig_partial_sig_adapt(
+	if 1 != C.secp256k1_musig_extract_secret_adaptor(
 		ctx.ctx,
 		cBuf(secadaptor32[:]),
 		cBuf(sig64),
 		&sigs[0],
 		C.size_t(len(sigs)),
-		nonceparity,
+		C.int(nonceparity),
 	) {
 		err = errors.New(ErrorMusigExtractSecretAdaptor)
 	}

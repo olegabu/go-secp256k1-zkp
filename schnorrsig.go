@@ -12,21 +12,21 @@ package secp256k1
 
 /*
 #include <stdlib.h>
-#include <string.h>
 #include "include/secp256k1_schnorrsig.h"
-static unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
-static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if(a) a[i] = v; }
-static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
-static void freeBytesArray(unsigned char** a) { if(a) free(a); }
-static secp256k1_pubkey** makePubkeyArray(int size) { return !size ? NULL : calloc(sizeof(secp256k1_pubkey*), size); }
-static void setPubkeyArray(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { if (a) a[n] = pubkey; }
-static void freePubkeyArray(secp256k1_pubkey **a) { if (a) free(a); }
 */
 //#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 import "C"
 import (
 	"errors"
 )
+
+//static unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
+//static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if(a) a[i] = v; }
+//static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
+//static void freeBytesArray(unsigned char** a) { if(a) free(a); }
+//static secp256k1_pubkey** makePubkeyArray(int size) { return !size ? NULL : calloc(sizeof(secp256k1_pubkey*), size); }
+//static void setPubkeyArray(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { if (a) a[n] = pubkey; }
+//static void freePubkeyArray(secp256k1_pubkey **a) { if (a) free(a); }
 
 /** Pointer to opaque data structure that holds a parsed Schnorr signature.
  *
@@ -180,68 +180,3 @@ func SchnorrsigVerify(
 	}
 	return
 }
-
-/** Verifies a set of Schnorr signatures.
- *
- * Returns 1 if all succeeded, 0 otherwise. In particular, returns 1 if n_sigs is 0.
- *
- *  Args:    ctx: a secp256k1 context object, initialized for verification.
- *       scratch: scratch space used for the multiexponentiation
- *  In:      sig: array of signatures, or NULL if there are no signatures
- *         msg32: array of messages, or NULL if there are no signatures
- *            pk: array of public keys, or NULL if there are no signatures
- *        n_sigs: number of signatures in above arrays. Must be smaller than
- *                2^31 and smaller than half the maximum size_t value. Must be 0
- *                if above arrays are NULL.
- */
-/*
-SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_schnorrsig_verify_batch(
-        const secp256k1_context* ctx,
-        secp256k1_scratch_space* scratch,
-        const secp256k1_schnorrsig* const* sig,
-        const unsigned char* const* msg32,
-        const secp256k1_pubkey* const* pk,
-        size_t n_sigs
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2);
-*/
-/* TODO
-func SchnorrsigVerifyBatch(
-	context *Context,
-	scratch *ScratchSpace,
-	sig []*Schnorrsig,
-	data [][32]byte,
-	pubkey []*PublicKey,
-) (
-	err error,
-) {
-	sl := len(sig)
-	dl := len(data)
-	kl := len(pubkey)
-	if sl != dl || sl != kl {
-		return errors.New(ErrorSchnorrsigCount)
-	}
-	ss := C.makeSchnorrsigArray(C.int(sl))
-	ds := C.makeBytesArray(C.int(sl))
-	ks := C.makePubkeyArray(C.int(sl))
-	for i := 0; i < sl; i++ {
-		C.setSchnorrsigArray(ss, sig[i].c, C.int(i))
-		C.setBytesArray(ds, cBuf(data[i][:]), C.int(i))
-		C.setPubkeyArray(ks, pubkey[i].pk, C.int(i))
-	}
-	defer C.freeSchnorrsigArray(ss)
-	defer C.freeBytesArray(ds)
-	defer C.freePubkeyArray(ks)
-
-	if 1 != int(
-		C.secp256k1_schnorrsig_verify_batch(
-			context.ctx,
-			scratch.scr,
-			ss,
-			ds,
-			ks,
-			C.size_t(sl))) {
-		return errors.New(ErrorSchnorrsigVerify)
-	}
-	return
-}
-*/

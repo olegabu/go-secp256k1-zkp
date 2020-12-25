@@ -23,29 +23,7 @@ package secp256k1
 #define ECMULT_GEN_PREC_BITS 4
 #include "src/secp256k1.c"
 #include "src/testrand_impl.h"
-#include "src/util.h"
-#include "src/hash_impl.h"
-#include "scalar_impl.h"
-#include "group_impl.h"
-#include "field_impl.h"
-inline secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
-inline void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
-inline void freePubkeyArray(secp256k1_pubkey * *a) { free(a); }
-//long long getSelfThreadId64() { return (long long)pthread_self; }
-//uint32_t getSelfThreadId() { return (uint32_t)syscall(SYS_gettid); }
-int commitment_to_pubkey(secp256k1_pubkey* pubkey, const secp256k1_pedersen_commitment* commit) {
-    secp256k1_ge Q;
-    secp256k1_fe fe;
-    memset(pubkey, 0, sizeof(*pubkey));
-    secp256k1_fe_set_b32(&fe, &commit->data[1]);
-    secp256k1_ge_set_xquad(&Q, &fe);
-    if (commit->data[0] & 1) {
-        secp256k1_ge_neg(&Q, &Q);
-    }
-    secp256k1_pubkey_save(pubkey, &Q);
-    secp256k1_ge_clear(&Q);
-    return 1;
-}
+#include "src/modules/musig/main_impl.h"
 void random_scalar_order256(unsigned char *out) {
 	do {
         int overflow = 0;
@@ -64,6 +42,12 @@ import (
 	"fmt"
 	"unsafe"
 )
+
+/*inline secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
+inline void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
+inline void freePubkeyArray(secp256k1_pubkey * *a) { free(a); }
+//long long getSelfThreadId64() { return (long long)pthread_self; }
+//uint32_t getSelfThreadId() { return (uint32_t)syscall(SYS_gettid); }*/
 
 const (
 	/** Flags to pass to secp256k1_context_create. */
@@ -115,19 +99,6 @@ const (
 
 	ErrorPublicKeyParse string = "Unable to parse this public key"
 )
-
-// Callbacks for converting libsecp256k1 internal faults into
-// recoverable Go panics.
-
-//export secp256k1GoPanicIllegal
-func secp256k1GoPanicIllegal(msg *C.char, data unsafe.Pointer) {
-	panic("illegal argument: " + C.GoString(msg))
-}
-
-//export secp256k1GoPanicError
-func secp256k1GoPanicError(msg *C.char, data unsafe.Pointer) {
-	panic("internal error: " + C.GoString(msg))
-}
 
 // Context wraps a *secp256k1_context, required to use all
 // functions. It can be initialized for signing, verification,
@@ -503,15 +474,20 @@ func EcPubkeyCombine(ctx *Context, vPk []*PublicKey) (int, *PublicKey, error) {
 		return 0, nil, errors.New("Must provide at least one public key")
 	}
 
-	array := C.makePubkeyArray(C.int(l))
+	/*array := C.makePubkeyArray(C.int(l))
 	for i := 0; i < l; i++ {
 		C.setArrayPubkey(array, vPk[i].pk, C.int(i))
 	}
 
-	defer C.freePubkeyArray(array)
+	defer C.freePubkeyArray(array)*/
+
+	array := make([]*C.secp256k1_pubkey, l)
+	for i, pubkey := range vPk {
+		array[i] = pubkey.pk
+	}
 
 	pkOut := newPublicKey()
-	result := int(C.secp256k1_ec_pubkey_combine(ctx.ctx, pkOut.pk, array, C.size_t(l)))
+	result := int(C.secp256k1_ec_pubkey_combine(ctx.ctx, pkOut.pk, &array[0], C.size_t(l)))
 	if result != 1 {
 		return result, nil, errors.New(ErrorPublicKeyCombine)
 	}
@@ -703,13 +679,13 @@ func CommitmentToPublicKey(
 	err error,
 ) {
 	pubkey = newPublicKey()
-	if 1 != C.commitment_to_pubkey(
-		pubkey.pk,
-		commit.com) {
+	/*	if 1 != C.commitment_to_pubkey(
+			pubkey.pk,
+			commit.com) {
 
-		return nil, errors.New(ErrorCommitmentPubkey)
-	}
-
+			return nil, errors.New(ErrorCommitmentPubkey)
+		}
+	*/
 	return pubkey, nil
 }
 
@@ -776,4 +752,13 @@ func ScratchSpaceDestroy(
 		ctx.ctx,
 		scratch,
 	)
+}
+
+/* Compute msghash = SHA256(combined_nonce, combined_pk, msg)
+ *
+static void secp256k1_musig_compute_messagehash(const secp256k1_context *ctx, unsigned char *msghash, const secp256k1_musig_session *session) {
+**/
+func musigComputeMessageHash(ctx *Context, session *MusigSession) (msghash [32]byte) {
+	C.secp256k1_musig_compute_messagehash(ctx.ctx, cBuf(msghash[:]), session)
+	return
 }
