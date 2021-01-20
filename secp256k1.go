@@ -7,7 +7,6 @@ package secp256k1
 #include <syscall.h>
 #define USE_BASIC_CONFIG 1
 #include "src/basic-config.h"
-//#define SURJECTION_PARAMETERS_LOG 1
 #define ENABLE_MODULE_ECDH 1
 #define ENABLE_MODULE_RECOVERY 1
 #define ENABLE_MODULE_GENERATOR 1
@@ -24,6 +23,7 @@ package secp256k1
 #include "src/secp256k1.c"
 #include "src/testrand_impl.h"
 #include "src/modules/musig/main_impl.h"
+#include "include/secp256k1_rangeproof.h"
 void random_scalar_order256(unsigned char *out) {
 	do {
         int overflow = 0;
@@ -33,6 +33,61 @@ void random_scalar_order256(unsigned char *out) {
 		if (!overflow && !secp256k1_scalar_is_zero(&num)) break;
     }
 	while (1);
+}
+int blind_value_generator_blind_sum(uint64_t v, const unsigned char* ra, unsigned char* r) {
+ 	int success = 0;
+    int overflow = 0;
+    secp256k1_scalar tmp, vra;
+    secp256k1_scalar_set_u64(&vra, v);
+ 	secp256k1_scalar_set_b32(&tmp, ra, &overflow);
+    if (!overflow) {
+        secp256k1_scalar_mul(&vra, &vra, &tmp); // vra = v * ra
+        secp256k1_scalar_set_b32(&tmp, r, &overflow);
+        if (!overflow) {
+            secp256k1_scalar_add(&vra, &vra, &tmp); // result = vra + r
+            secp256k1_scalar_get_b32(r, &vra); // pass the result back in r
+            success = 1;
+        }
+ 	}
+    secp256k1_scalar_clear(&vra);
+    secp256k1_scalar_clear(&tmp);
+    return success;
+}
+// Takes two list of 33-byte commitments and sums the first set, subtracts the second and returns the resulting commitment.
+int secp256k1_pedersen_commit_sum(
+	const secp256k1_context* ctx,
+	secp256k1_pedersen_commitment *commit_out,
+	const secp256k1_pedersen_commitment * const* commits,
+	size_t pcnt,
+	const secp256k1_pedersen_commitment * const* ncommits,
+	size_t ncnt
+) {
+    secp256k1_gej accj;
+    secp256k1_ge add;
+    size_t i;
+    int ret = 0;
+    if (ctx == NULL) return 0;              // VERIFY_CHECK(ctx != NULL);
+    if (pcnt && commits == NULL) return 0;  // ARG_CHECK(!pcnt || (commits != NULL));
+    if (ncnt && ncommits == NULL) return 0; // ARG_CHECK(!ncnt || (ncommits != NULL));
+    if (commit_out == NULL) return 0;       // ARG_CHECK(commit_out != NULL);
+    (void) ctx;
+    secp256k1_gej_set_infinity(&accj);
+    for (i = 0; i < ncnt; i++) {
+        secp256k1_pedersen_commitment_load(&add, ncommits[i]);
+        secp256k1_gej_add_ge_var(&accj, &accj, &add, NULL);
+    }
+    secp256k1_gej_neg(&accj, &accj);
+    for (i = 0; i < pcnt; i++) {
+        secp256k1_pedersen_commitment_load(&add, commits[i]);
+        secp256k1_gej_add_ge_var(&accj, &accj, &add, NULL);
+    }
+    if (!secp256k1_gej_is_infinity(&accj)) {
+        secp256k1_ge acc;
+        secp256k1_ge_set_gej(&acc, &accj);
+        secp256k1_pedersen_commitment_save(commit_out, &acc);
+        ret = 1;
+    }
+    return ret;
 }
 */
 import "C"
@@ -50,7 +105,7 @@ inline void freePubkeyArray(secp256k1_pubkey * *a) { free(a); }
 //uint32_t getSelfThreadId() { return (uint32_t)syscall(SYS_gettid); }*/
 
 const (
-	/** Flags to pass to secp256k1_context_create. */
+	// Flags to pass to secp256k1_context_create.
 	ContextNone   = uint(C.SECP256K1_CONTEXT_NONE)
 	ContextSign   = uint(C.SECP256K1_CONTEXT_SIGN)
 	ContextVerify = uint(C.SECP256K1_CONTEXT_VERIFY)
@@ -760,5 +815,86 @@ static void secp256k1_musig_compute_messagehash(const secp256k1_context *ctx, un
 **/
 func musigComputeMessageHash(ctx *Context, session *MusigSession) (msghash [32]byte) {
 	C.secp256k1_musig_compute_messagehash(ctx.ctx, cBuf(msghash[:]), session)
+	return
+}
+
+/** SumBlindGeneratorBlind takes a value (64-bit int), and both
+ *  value's and asset's blinding factors and computes using formula:
+ *  r + (v * ra)
+ *
+ *   IN: v = value 64 bit int
+ *       r = value's blinding factor
+ *      ra = asset's blinding factor
+ *   OUT:
+ *        result: 32-byte scalar value
+ *     err == nil if success
+ */
+func BlindValueGeneratorBlindSum(
+	v uint64,
+	ra []byte,
+	r []byte,
+) (
+	result [32]byte,
+	err error,
+) {
+	copy(result[:], r)
+	if 1 != C.blind_value_generator_blind_sum(
+		C.uint64_t(v),
+		cBuf(ra),
+		cBuf(result[:]),
+	) {
+		err = errors.New(ErrorCommitmentCommit)
+	}
+	return
+}
+
+/** Computes the sum of multiple positive and negative pedersen commitments
+ * Returns 1: sum successfully computed.
+ * In:     ctx:        pointer to a context object, initialized for Pedersen commitment (cannot be NULL)
+ *         commits:    pointer to array of pointers to the commitments. (cannot be NULL if pcnt is non-zero)
+ *         pcnt:       number of commitments pointed to by commits.
+ *         ncommits:   pointer to array of pointers to the negative commitments. (cannot be NULL if ncnt is non-zero)
+ *         ncnt:       number of commitments pointed to by ncommits.
+ *  Out:   commit_out: pointer to the commitment (cannot be NULL)
+ *
+SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit_sum(
+	const secp256k1_context* ctx,
+	secp256k1_pedersen_commitment *commit_out,
+	const secp256k1_pedersen_commitment * const* commits,
+	size_t pcnt,
+	const secp256k1_pedersen_commitment * const* ncommits,
+	size_t ncnt
+) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
+*/
+func CommitSum(
+	context *Context,
+	poscommits []*Commitment,
+	negcommits []*Commitment,
+) (
+	sum *Commitment,
+	err error,
+) {
+	posarr := makeCommitmentsArray(len(poscommits))
+	defer freeCommitmentsArray(posarr)
+	for pi, pc := range poscommits {
+		setCommitmentsArray(posarr, pc.com, pi)
+	}
+
+	negarr := makeCommitmentsArray(len(negcommits))
+	defer freeCommitmentsArray(negarr)
+	for ni, nc := range negcommits {
+		setCommitmentsArray(negarr, nc.com, ni)
+	}
+
+	sum = newCommitment()
+	if 1 != C.secp256k1_pedersen_commit_sum(
+		context.ctx,
+		sum.com,
+		posarr, C.size_t(len(poscommits)),
+		negarr, C.size_t(len(negcommits))) {
+
+		err = errors.New("error calculating sum of commitments")
+	}
+
 	return
 }

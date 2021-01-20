@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRangeProofSign(t *testing.T) {
+func TestRangeproofSign(t *testing.T) {
 	file, err := ioutil.ReadFile("testdata/rangeproof.json")
 	assert.NoError(t, err)
 
 	var tests map[string]interface{}
-	json.Unmarshal(file, &tests)
+	assert.NoError(t, json.Unmarshal(file, &tests))
 	vectors := tests["sign"].([]interface{})
 
 	ctx, _ := ContextCreate(ContextBoth)
@@ -35,19 +35,19 @@ func TestRangeProofSign(t *testing.T) {
 		message, _ := hex.DecodeString(v["message"].(string))
 		extraCommit, _ := hex.DecodeString(v["extraCommit"].(string))
 
-		proof, err := RangeProofSign(ctx, uint64(minValue), commit, blind, nonce, 0, 0, uint64(value), message, extraCommit, gen)
+		proof, err := RangeproofSign(ctx, uint64(minValue), commit, blind, nonce, 0, 0, uint64(value), message, extraCommit, gen)
 		assert.NoError(t, err)
 		assert.NotNil(t, proof)
 		assert.Equal(t, v["expected"].(string), hex.EncodeToString(proof))
 	}
 }
 
-func TestRangeProofInfo(t *testing.T) {
+func TestRangeproofInfo(t *testing.T) {
 	file, err := ioutil.ReadFile("testdata/rangeproof.json")
 	assert.NoError(t, err)
 
 	var tests map[string]interface{}
-	json.Unmarshal(file, &tests)
+	assert.NoError(t, json.Unmarshal(file, &tests))
 	vectors := tests["info"].([]interface{})
 
 	ctx, _ := ContextCreate(ContextNone)
@@ -63,7 +63,7 @@ func TestRangeProofInfo(t *testing.T) {
 		expectedMinValue, _ := strconv.Atoi(expected["minValue"].(string))
 		expectedMaxValue, _ := strconv.Atoi(expected["maxValue"].(string))
 
-		exp, mantissa, minValue, maxValue, err := RangeProofInfo(ctx, proof)
+		exp, mantissa, minValue, maxValue, err := RangeproofInfo(ctx, proof)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedExp, exp)
 		assert.Equal(t, expectedMantissa, mantissa)
@@ -72,12 +72,12 @@ func TestRangeProofInfo(t *testing.T) {
 	}
 }
 
-func TestRangeProofVerify(t *testing.T) {
+func TestRangeproofVerify(t *testing.T) {
 	file, err := ioutil.ReadFile("testdata/rangeproof.json")
 	assert.NoError(t, err)
 
 	var tests map[string]interface{}
-	json.Unmarshal(file, &tests)
+	assert.NoError(t, json.Unmarshal(file, &tests))
 	vectors := tests["verify"].([]interface{})
 
 	ctx, _ := ContextCreate(ContextVerify)
@@ -96,17 +96,17 @@ func TestRangeProofVerify(t *testing.T) {
 		assert.Equal(
 			t,
 			v["expected"].(bool),
-			RangeProofVerify(ctx, proof, commit, extraCommit, generator),
+			RangeproofVerify(ctx, proof, commit, extraCommit, generator),
 		)
 	}
 }
 
-func TestRangeProofRewind(t *testing.T) {
+func TestRangeproofRewind(t *testing.T) {
 	file, err := ioutil.ReadFile("testdata/rangeproof.json")
 	assert.NoError(t, err)
 
 	var tests map[string]interface{}
-	json.Unmarshal(file, &tests)
+	assert.NoError(t, json.Unmarshal(file, &tests))
 	vectors := tests["rewind"].([]interface{})
 
 	ctx, _ := ContextCreate(ContextBoth)
@@ -126,7 +126,7 @@ func TestRangeProofRewind(t *testing.T) {
 		assert.NoError(t, err)
 
 		blindingFactor, value, minValue, maxValue, message, err :=
-			RangeProofRewind(ctx, commit, proof, nonce, extraCommit, generator)
+			RangeproofRewind(ctx, commit, proof, nonce, extraCommit, generator)
 		assert.NoError(t, err)
 		expected := v["expected"].(map[string]interface{})
 		assert.Equal(t, expected["value"], strconv.Itoa(int(value)))
@@ -135,4 +135,43 @@ func TestRangeProofRewind(t *testing.T) {
 		assert.Equal(t, expected["blindFactor"], hex.EncodeToString(blindingFactor[:]))
 		assert.Equal(t, expected["message"].(string), hex.EncodeToString(message[:]))
 	}
+}
+
+func TestRangeproofSingle(t *testing.T) {
+	context, err := ContextCreate(ContextVerify | ContextSign)
+	assert.NoError(t, err)
+
+	// scratch, err := ScratchSpaceCreate(context, 1024*4096)
+	// if err != nil {
+	//     return
+	// }
+	// defer ScratchSpaceDestroy(scratch)
+
+	// generators, err := BulletproofGeneratorsCreate(context, &GeneratorG, 2*64*2)
+	// if err != nil {
+	//     return
+	// }
+	// defer BulletproofGeneratorsDestroy(context, generators)
+
+	value := uint64(12345678)
+
+	blind := Random256()
+	nonce := Random256()
+	assert.NoError(t, err)
+
+	commit, err := Commit(context, blind[:], value, &GeneratorG)
+	assert.NoError(t, err)
+
+	//proof, err := RangeproofProveSingle(context, nil, nil, value, blind[:], blind[:], nil, nil, nil)
+	proof, err := RangeproofSign(context, 0, commit, blind[:], nonce[:], 0, 0, uint64(value), nil, nil, &GeneratorG)
+	assert.NoError(t, err)
+
+	for i := 0; i < 1000; i++ {
+		//bulletproof, _, _, _, err := BulletproofRangeproofProve(context, scratch, generators, taux, &tone, &ttwo, []uint64{value}, nil, [][32]byte{blinding}, []*Commitment
+		prooferr := RangeproofVerify(context, proof, commit, nil, &GeneratorG)
+		assert.True(t, prooferr)
+	}
+
+	//prooferr = BulletproofRangeproofVerifySingle(context, nil, nil, proof, commit, nil)
+	//assert.NoError(t, prooferr)
 }

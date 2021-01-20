@@ -8,14 +8,8 @@ package secp256k1
 
 /*
 #cgo CFLAGS: -I ${SRCDIR}/secp256k1-zkp -I ${SRCDIR}/secp256k1-zkp/src
-#define USE_BASIC_CONFIG 1
-#include <stddef.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include "basic-config.h"
-#include "include/secp256k1.h"
 #include "include/secp256k1_rangeproof.h"
-#include "scalar_impl.h"
 static const unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
 static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
 static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
@@ -24,25 +18,6 @@ static secp256k1_pedersen_commitment** makeCommitmentsArray(int size) { return !
 static void setCommitmentsArray(secp256k1_pedersen_commitment** a, secp256k1_pedersen_commitment* v, int i) { if (a) a[i] = v; }
 static secp256k1_pedersen_commitment* getCommitmentsArray(secp256k1_pedersen_commitment** a, int i) { return !a ? NULL : a[i]; }
 static void freeCommitmentsArray(secp256k1_pedersen_commitment** a) { if (a) free(a); }
-int blind_value_generator_blind_sum(uint64_t v, const unsigned char* ra, unsigned char* r) {
- 	int success = 0;
-    int overflow = 0;
-    secp256k1_scalar tmp, vra;
-    secp256k1_scalar_set_u64(&vra, v);
- 	secp256k1_scalar_set_b32(&tmp, ra, &overflow);
-    if (!overflow) {
-        secp256k1_scalar_mul(&vra, &vra, &tmp); // vra = v * ra
-        secp256k1_scalar_set_b32(&tmp, r, &overflow);
-        if (!overflow) {
-            secp256k1_scalar_add(&vra, &vra, &tmp); // result = vra + r
-            secp256k1_scalar_get_b32(r, &vra); // pass the result back in r
-            success = 1;
-        }
- 	}
-    secp256k1_scalar_clear(&vra);
-    secp256k1_scalar_clear(&tmp);
-    return success;
-}
 */
 import "C"
 import (
@@ -67,10 +42,11 @@ const (
 	ErrorCommitmentParse     string = "unable to parse the data as a commitment"
 	ErrorCommitmentSerialize string = "unable to serialize commitment"
 	ErrorCommitmentCount     string = "number of elements differ in input arrays"
-	// ErrorCommitmentTally     string = "sums of inputs and outputs are not equal"
-	ErrorCommitmentCommit string = "failed to create a commitment"
-	// ErrorCommitmentBlindSum  string = "failed to calculate sum of blinding factors"
-	ErrorCommitmentPubkey string = "failed to create public key from commitment"
+	ErrorCommitmentTally     string = "sums of inputs and outputs are not equal"
+	ErrorCommitmentCommit    string = "failed to create a commitment"
+	ErrorCommitmentSwitch    string = "failed to calcultate switch commitment"
+	ErrorCommitmentBlindSum  string = "failed to calcluate sum of blinding factors"
+	ErrorCommitmentPubkey    string = "failed to create public key from commitment"
 )
 
 func makeCommitmentsArray(size int) **C.secp256k1_pedersen_commitment {
@@ -101,19 +77,21 @@ func CommitmentParse(
 	context *Context,
 	data33 []byte,
 ) (
-	*Commitment,
-	error,
+	commit *Commitment,
+	err error,
 ) {
-	commit := newCommitment()
+	tmp := newCommitment()
 	if 1 != C.secp256k1_pedersen_commitment_parse(
 		context.ctx,
-		commit.com,
-		cBuf(data33)) {
-
-		return nil, errors.New(ErrorCommitmentParse + " \"" + hex.EncodeToString(data33) + "\"")
+		tmp.com,
+		cBuf(data33),
+	) {
+		err = errors.New(ErrorCommitmentParse)
+	} else {
+		commit = tmp
 	}
 
-	return commit, nil
+	return
 }
 
 /** Serialize Commitment into sequence of bytes.
@@ -152,15 +130,13 @@ func (commit *Commitment) String() string {
 	return hex.EncodeToString(bytes[:])
 }
 
-func CommitmentFromString(str string) (com *Commitment, err error) {
+func CommitmentFromString(str string) (*Commitment, error) {
 	bytes, err := hex.DecodeString(str)
 	if err != nil {
-		return
-
+		return nil, err
 	}
-	com, err = CommitmentParse(SharedContext(ContextNone), bytes)
 
-	return
+	return CommitmentParse(SharedContext(ContextNone), bytes)
 }
 
 /** Generate a pedersen commitment.
@@ -296,55 +272,11 @@ func BlindSum(
 		C.size_t(C.int(ntotal)),
 		C.size_t(C.int(npositive))) {
 
-		err = errors.New("error calculating sum of blinds")
+		err = errors.New(ErrorCommitmentBlindSum)
 	}
 
 	return
 }
-
-/** Computes the sum of multiple positive and negative pedersen commitments
- * Returns 1: sum successfully computed.
- * In:     ctx:        pointer to a context object, initialized for Pedersen commitment (cannot be NULL)
- *         commits:    pointer to array of pointers to the commitments. (cannot be NULL if pcnt is non-zero)
- *         pcnt:       number of commitments pointed to by commits.
- *         ncommits:   pointer to array of pointers to the negative commitments. (cannot be NULL if ncnt is non-zero)
- *         ncnt:       number of commitments pointed to by ncommits.
- *  Out:   commit_out: pointer to the commitment (cannot be NULL)
- */
-/* TODO
-func CommitSum(
-	context *Context,
-	poscommits []*Commitment,
-	negcommits []*Commitment,
-) (
-	sum *Commitment,
-	err error,
-) {
-	posarr := makeCommitmentsArray(len(poscommits))
-	defer freeCommitmentsArray(posarr)
-	for pi, pc := range poscommits {
-		setCommitmentsArray(posarr, pc.com, pi)
-	}
-
-	negarr := makeCommitmentsArray(len(negcommits))
-	defer freeCommitmentsArray(negarr)
-	for ni, nc := range negcommits {
-		setCommitmentsArray(negarr, nc.com, ni)
-	}
-
-	sum = newCommitment()
-	if 1 != C.secp256k1_pedersen_commit_sum(
-		context.ctx,
-		sum.com,
-		posarr, C.size_t(len(poscommits)),
-		negarr, C.size_t(len(negcommits))) {
-
-		err = errors.New("error calculating sum of commitments")
-	}
-
-	return
-}
-*/
 
 /** Verify a tally of Pedersen commitments
  * Returns 1: commitments successfully sum to zero.
@@ -386,7 +318,7 @@ func VerifyTally(
 		posarr, C.size_t(len(poscommits)),
 		negarr, C.size_t(len(negcommits))) {
 
-		err = errors.New("commitments do not sum to zero or other error")
+		err = errors.New(ErrorCommitmentTally)
 	}
 
 	return
@@ -480,8 +412,8 @@ func BlindGeneratorBlindSum(
  *           value_gen: value generator 'h'
  *           blind_gen: blinding factor generator 'g'
  *       switch_pubkey: pointer to public key 'j'
- */
-/* TODO
+ *
+// TODO BlindSwitch
 func BlindSwitch(
 	context *Context,
 	blind []byte,
@@ -500,40 +432,10 @@ func BlindSwitch(
 		C.uint64_t(value),
 		valuegen.gen,
 		blindgen.gen,
-		switchpubkey.pk) {
-
-		err = errors.New(ErrorCommitmentCommit)
-	}
-	return
-}*/
-
-/** SumBlindGeneratorBlind takes a value (64-bit int), and both
- *  value's and asset's blinding factors and computes using formula:
- *  r + (v * ra)
- *
- *   IN: v = value 64 bit int
- *       r = value's blinding factor
- *      ra = asset's blinding factor
- *   OUT:
- *        result: 32-byte scalar value
- *     err == nil if success
- *
- */
-func BlindValueGeneratorBlindSum(
-	v uint64,
-	ra []byte,
-	r []byte,
-) (
-	result [32]byte,
-	err error,
-) {
-	copy(result[:], r)
-	if 1 != C.blind_value_generator_blind_sum(
-		C.uint64_t(v),
-		cBuf(ra),
-		cBuf(result[:]),
+		switchpubkey.pk,
 	) {
-		err = errors.New(ErrorCommitmentCommit)
+		err = errors.New(ErrorCommitmentSwitch)
 	}
 	return
 }
+*/
