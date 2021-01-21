@@ -650,6 +650,10 @@ func goBytes(cSlice []C.uchar, size C.int) []byte {
 	return C.GoBytes(unsafe.Pointer(&cSlice[0]), size)
 }
 
+func goUchars(pBytes *C.uchar, size C.int) []byte {
+	return C.GoBytes(unsafe.Pointer(pBytes), size)
+}
+
 /*func Random256() [32]byte {
 	s := make([]byte, 32)
 	l, err := rand.Read(s)
