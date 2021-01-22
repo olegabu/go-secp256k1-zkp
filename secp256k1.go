@@ -4,7 +4,6 @@ package secp256k1
 #cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 #include <stdlib.h>
 #include <stdint.h>
-#include <syscall.h>
 #define USE_BASIC_CONFIG 1
 #include "src/basic-config.h"
 #define ENABLE_MODULE_ECDH 1
@@ -24,6 +23,9 @@ package secp256k1
 #include "src/testrand_impl.h"
 #include "src/modules/musig/main_impl.h"
 #include "include/secp256k1_rangeproof.h"
+static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
+static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
+static void freePubkeyArray(secp256k1_pubkey * *a) { free(a); }
 void random_scalar_order256(unsigned char *out) {
 	do {
         int overflow = 0;
@@ -97,12 +99,6 @@ import (
 	"fmt"
 	"unsafe"
 )
-
-/*inline secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
-inline void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
-inline void freePubkeyArray(secp256k1_pubkey * *a) { free(a); }
-//long long getSelfThreadId64() { return (long long)pthread_self; }
-//uint32_t getSelfThreadId() { return (uint32_t)syscall(SYS_gettid); }*/
 
 const (
 	// Flags to pass to secp256k1_context_create.
@@ -529,20 +525,14 @@ func EcPubkeyCombine(ctx *Context, vPk []*PublicKey) (int, *PublicKey, error) {
 		return 0, nil, errors.New("Must provide at least one public key")
 	}
 
-	/*array := C.makePubkeyArray(C.int(l))
+	array := C.makePubkeyArray(C.int(l))
 	for i := 0; i < l; i++ {
 		C.setArrayPubkey(array, vPk[i].pk, C.int(i))
 	}
-
-	defer C.freePubkeyArray(array)*/
-
-	array := make([]*C.secp256k1_pubkey, l)
-	for i, pubkey := range vPk {
-		array[i] = pubkey.pk
-	}
+	defer C.freePubkeyArray(array)
 
 	pkOut := newPublicKey()
-	result := int(C.secp256k1_ec_pubkey_combine(ctx.ctx, pkOut.pk, &array[0], C.size_t(l)))
+	result := int(C.secp256k1_ec_pubkey_combine(ctx.ctx, pkOut.pk, array, C.size_t(l)))
 	if result != 1 {
 		return result, nil, errors.New(ErrorPublicKeyCombine)
 	}
