@@ -59,6 +59,7 @@ const (
 	ErrorBulletproofParams       string = "invalid input parameters"
 	ErrorBulletproofVerification string = "bulletproof verification failed"
 	ErrorBulletproofGeneration   string = "bulletproof generation failed"
+	ErrorBulletproofProveMulti   string = "bulletproof generation failed"
 )
 
 /**********************************************************
@@ -844,11 +845,11 @@ func BulletproofRangeproofProveMulti( // this version is for multiple participan
 	context *Context,
 	scratch *ScratchSpace,
 	generators *BulletproofGenerators,
-	taux [32]byte,
+	taux []byte,
 	tone *PublicKey,
 	ttwo *PublicKey,
-	value []uint64,
-	blind []*[32]byte,
+	values []uint64,
+	blinds [][]byte,
 	commits []*Commitment,
 	valuegen *Generator,
 	nbits int,
@@ -863,16 +864,16 @@ func BulletproofRangeproofProveMulti( // this version is for multiple participan
 	ottwo *PublicKey,
 	err error,
 ) {
-	if len(blind) != len(value) {
+	if len(blinds) != len(values) {
 		err = errors.New(ErrorBulletproofParams)
 		return
 	}
 
-	blinds := C.makeBytesArray(C.int(len(blind)))
-	for bi, bv := range blind {
-		C.setBytesArray(blinds, cBuf(bv[:]), C.int(bi))
+	tblinds := C.makeBytesArray(C.int(len(blinds)))
+	for bi, bv := range blinds {
+		C.setBytesArray(tblinds, cBuf(bv), C.int(bi))
 	}
-	defer C.freeBytesArray(blinds)
+	defer C.freeBytesArray(tblinds)
 
 	cs := C.makeCommitmentsArray(C.int(len(commits)))
 	for ci, cv := range commits {
@@ -886,7 +887,7 @@ func BulletproofRangeproofProveMulti( // this version is for multiple participan
 	}
 
 	if scratch == nil {
-		scratch, err = ScratchSpaceCreate(context, 1024*1024)
+		scratch, err = ScratchSpaceCreate(context, 1024*4096)
 		if err != nil {
 			return
 		}
@@ -894,15 +895,18 @@ func BulletproofRangeproofProveMulti( // this version is for multiple participan
 	}
 
 	if generators == nil {
-		generators, err = BulletproofGeneratorsCreate(context, &GeneratorH, 2*64*len(blind))
+		generators, err = BulletproofGeneratorsCreate(context, &GeneratorG, 256)
 		if err != nil {
-			err = fmt.Errorf("error creating generators for bulletproof calculation")
+			err = fmt.Errorf(ErrorBulletproofProveMulti)
 			return
 		}
 		defer BulletproofGeneratorsDestroy(context, generators)
 	}
 
-	ttaux := taux[:]
+	var ttaux *C.uchar
+	if len(taux) == 32 {
+		ttaux = cBuf(taux[:])
+	}
 
 	var ttone *C.secp256k1_pubkey
 	if tone != nil {
@@ -914,39 +918,84 @@ func BulletproofRangeproofProveMulti( // this version is for multiple participan
 		tttwo = ttwo.pk
 	}
 
-	outproof := make([]C.uchar, BulletproofMaxSize)
-	outprooflen := C.size_t(BulletproofMaxSize)
+	var tcommits *C.secp256k1_pedersen_commitment
+	if len(commits) > 0 {
+		tcommits = *cs
+	}
 
-	if 1 != C.secp256k1_bulletproof_rangeproof_prove(
-		context.ctx,
-		scratch.scr,
-		generators.gens,
-		&outproof[0],
-		&outprooflen,
-		cBuf(ttaux),
-		ttone,
-		tttwo,
-		u64Arr(value),
-		u64Arr(nil),
-		blinds,
-		cs,
-		C.size_t(len(blind)),
-		valuegen.gen,
-		C.size_t(nbits),
-		cBuf(nonce),
-		cBuf(privatenonce),
-		cBuf(extra),
-		C.size_t(len(extra)),
-		cBuf(msg)) {
+	var tnonce *C.uchar
+	if len(nonce) == 32 {
+		tnonce = cBuf(nonce)
+	}
 
-		err = errors.New(ErrorBulletproofGeneration)
+	var tprivatenonce *C.uchar
+	if len(privatenonce) == 32 {
+		tprivatenonce = cBuf(privatenonce)
+	}
+
+	var textra *C.uchar
+	if len(extra) > 0 {
+		textra = cBuf(extra)
+	}
+
+	var tmessage *C.uchar
+	if len(message) == 32 {
+		tmessage = cBuf(message)
+	}
+
+	step1 := ttaux == nil && ttone == nil && tttwo == nil && tcommits != nil && tnonce != nil
+	step2 := ttaux == nil && ttone != nil && tttwo != nil && tcommits != nil && tnonce != nil
+	step3 := ttaux != nil && ttone != nil && tttwo != nil && tcommits != nil && tnonce != nil
+
+	var tproof *C.uchar
+	var tprooflen *C.size_t
+	switch {
+	case step1:
+		tproof, tprooflen = nil, nil
+		ttone, tttwo = &C.secp256k1_pubkey{}, &C.secp256k1_pubkey{}
+	case step2:
+		tproof, tprooflen = nil, nil
+		ttaux = cBuf(make([]byte, 32))
+	case step3:
+		proofbuf := make([]byte, BulletproofMaxSize)
+		prooflen := C.size_t(BulletproofMaxSize)
+		tproof, tprooflen = cBuf(proofbuf[:]), &prooflen
+	default:
+		err = errors.New(ErrorBulletproofProveMulti)
 		return
 	}
 
-	proof = goBytes(outproof, C.int(outprooflen))
-	otaux = ttaux
-	otone.pk = ttone
-	ottwo.pk = tttwo
+	if 1 != C.secp256k1_bulletproof_rangeproof_prove(
+		context.ctx, scratch.scr, generators.gens,
+		tproof, tprooflen,
+		ttaux, ttone, tttwo,
+		u64Arr(values), nil,
+		tblinds, cs, C.size_t(len(blinds)),
+		valuegen.gen, C.size_t(nbits),
+		tnonce, tprivatenonce,
+		textra, C.size_t(len(extra)),
+		tmessage,
+	) {
+		err = errors.New(ErrorBulletproofProveMulti)
+		return
+	}
+
+	// tprooflen - poointer to size of `proof`, to be replaced with actual length of proof
+	if tprooflen != nil && *tprooflen > 0 {
+		proof = goUchars(tproof, C.int(*tprooflen))
+	}
+
+	// tau_x: 32-byte, output in second step or input in final step
+	if step2 && ttaux != nil {
+		otaux = goUchars(ttaux, C.int(32))
+	}
+
+	// t_one: public key, output in first step or input for the others
+	// t_two: public key, output in first step or input for the others
+	if step1 && (ttone != nil && tttwo != nil) {
+		otone, ottwo = newPublicKey(), newPublicKey()
+		otone.pk, ottwo.pk = ttone, tttwo
+	}
 
 	return
 }

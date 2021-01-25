@@ -4,7 +4,6 @@ package secp256k1
 #cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
 #include <stdlib.h>
 #include <stdint.h>
-#include <syscall.h>
 #define USE_BASIC_CONFIG 1
 #include "src/basic-config.h"
 //#define SURJECTION_PARAMETERS_LOG 1
@@ -587,6 +586,10 @@ func u64Arr(a []uint64) *C.uint64_t {
 
 func goBytes(cSlice []C.uchar, size C.int) []byte {
 	return C.GoBytes(unsafe.Pointer(&cSlice[0]), size)
+}
+
+func goUchars(pBytes *C.uchar, size C.int) []byte {
+	return C.GoBytes(unsafe.Pointer(pBytes), size)
 }
 
 /*func Random256() [32]byte {
