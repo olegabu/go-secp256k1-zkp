@@ -49,7 +49,6 @@ func TestBulletproofMulti(t *testing.T) {
 	assert.NoError(t, err)
 
 	blinds := make([][]byte, 0)
-
 	var commit *Commitment
 	for i := 0; i < participantsCount; i++ {
 		blind := Random256()
@@ -69,8 +68,19 @@ func TestBulletproofMulti(t *testing.T) {
 	publicTau1s := make([]*PublicKey, 0)
 	publicTau2s := make([]*PublicKey, 0)
 	for i := 0; i < participantsCount; i++ {
+		// mandatory within implementation, but not necessary for algorithm
+		fakeCommit, err := Commit(context, blinds[i], 0, &GeneratorH, &GeneratorG)
+		assert.NoError(t, err)
+
+		// mandatory within implementation, but not necessary for algorithm
+		fakeBlind := make([]byte, 32)
+		fakeBlind[0] = 1
+
+		// mandatory within implementation, but not necessary for algorithm
+		fakeCommonNonce := make([]byte, 32)
+
 		_, _, publicTau1, publicTau2, err := BulletproofRangeproofProveMulti(context, nil, nil, nil, nil, nil,
-			[]uint64{value}, [][]byte{blinds[i]}, []*Commitment{commit}, &GeneratorH, 64, commonNonce[:], blinds[i][:], nil, nil)
+			[]uint64{0}, [][]byte{fakeBlind}, []*Commitment{fakeCommit}, &GeneratorH, 64, fakeCommonNonce, blinds[i][:], nil, nil)
 		assert.NoError(t, err)
 		publicTau1s = append(publicTau1s, publicTau1)
 		publicTau2s = append(publicTau2s, publicTau2)
@@ -94,8 +104,12 @@ func TestBulletproofMulti(t *testing.T) {
 	assert.NoError(t, err)
 
 	// third step
+	// mandatory within implementation, but not necessary for algorithm
+	fakeBlind := make([]byte, 32)
+	fakeBlind[0] = 1
+
 	proof, _, _, _, err := BulletproofRangeproofProveMulti(context, nil, nil, sumTauxs[:], sumPublicTau1, sumPublicTau2,
-		[]uint64{value}, [][]byte{blinds[0]}, []*Commitment{commit}, &GeneratorH, 64, commonNonce[:], blinds[0][:], nil, nil)
+		[]uint64{value}, [][]byte{fakeBlind}, []*Commitment{commit}, &GeneratorH, 64, commonNonce[:], fakeBlind, nil, nil)
 	assert.NoError(t, err)
 
 	prooferr := BulletproofRangeproofVerifySingle(context, nil, nil, append([]byte{1, 2, 3, 4}, proof[4:]...), commit, nil)
