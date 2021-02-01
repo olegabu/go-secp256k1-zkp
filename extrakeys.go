@@ -13,7 +13,10 @@ package secp256k1
 // #include <stdlib.h>
 // #include "include/secp256k1_extrakeys.h"
 import "C"
-import "errors"
+import (
+	"encoding/hex"
+	"errors"
+)
 
 const ErrorXonlyPubkeyParse = "error parsing XonlyPubkey data"
 const ErrorXonlyPubkeyFromPubkey = "error converting Pubkey into XonlyPubkey"
@@ -101,6 +104,29 @@ SECP256K1_API int secp256k1_xonly_pubkey_serialize(
 */
 func XonlyPubkeySerialize(ctx *Context, pubkey *XonlyPubkey) (output32 [32]byte) {
 	C.secp256k1_xonly_pubkey_serialize(ctx.ctx, cBuf(output32[:]), pubkey)
+
+	return
+}
+
+// Serialize a XonlyPubkey into a 32-byte sequence.
+func (pubkey *XonlyPubkey) Bytes() []byte {
+	bytes := XonlyPubkeySerialize(SharedContext(ContextNone), pubkey)
+
+	return bytes[:]
+}
+
+// Serialize a XonlyPubkey into a hex string
+func (pubkey *XonlyPubkey) String() string {
+
+	return hex.EncodeToString(pubkey.Bytes())
+}
+
+// Parse a hex string into XonlyPubkey, returns nil if invalid input
+func XonlyPubkeyFromString(str string) (pubkey *XonlyPubkey) {
+	bytes, err := hex.DecodeString(str)
+	if err == nil {
+		pubkey, _ = XonlyPubkeyParse(SharedContext(ContextNone), bytes)
+	}
 
 	return
 }
