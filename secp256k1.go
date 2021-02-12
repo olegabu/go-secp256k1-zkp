@@ -841,24 +841,24 @@ func CommitSum(
 	*Commitment,
 	error,
 ) {
-	/*posarr := makeCommitmentsArray(len(poscommits))
+	posarr := makeCommitmentsArray(len(poscommits))
 	defer freeCommitmentsArray(posarr)
 	for pi, pc := range poscommits {
-		setCommitmentsArray(posarr, pc.com, pi)
+		setCommitmentsArray(posarr, pc, pi)
 	}
 
 	negarr := makeCommitmentsArray(len(negcommits))
 	defer freeCommitmentsArray(negarr)
 	for ni, nc := range negcommits {
-		setCommitmentsArray(negarr, nc.com, ni)
-	}*/
+		setCommitmentsArray(negarr, nc, ni)
+	}
 
 	var tmp Commitment
 	if 1 != C.secp256k1_pedersen_commit_sum(
 		context.ctx,
 		&tmp,
-		&poscommits[0], C.size_t(len(poscommits)),
-		&negcommits[0], C.size_t(len(negcommits)),
+		posarr, C.size_t(len(poscommits)),
+		negarr, C.size_t(len(negcommits)),
 	) {
 		return nil, errors.New("error calculating sum of commitments")
 	}
