@@ -41,7 +41,7 @@ func TestBulletproofSingle(t *testing.T) {
 	assert.NoError(t, prooferr)
 }
 
-func TestBulletproofMulti(t *testing.T) {
+/*func TestBulletproofMulti(t *testing.T) {
 	participantsCount := 3
 	value := uint64(12345678)
 	commonNonce := Random256()
@@ -103,7 +103,7 @@ func TestBulletproofMulti(t *testing.T) {
 
 	prooferr = BulletproofRangeproofVerifySingle(context, nil, nil, proof, commit, nil)
 	assert.NoError(t, prooferr)
-}
+}*/
 
 func TestBulletproofMain(t *testing.T) {
 	/*

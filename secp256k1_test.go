@@ -17,14 +17,6 @@ func testingRand32() [32]byte {
 	}
 	return key
 }
-func testingRand(n int) []byte {
-	key := make([]byte, n)
-	_, err := io.ReadFull(rand.Reader, key[:])
-	if err != nil {
-		panic(err)
-	}
-	return key
-}
 
 func TestRand256(t *testing.T) {
 

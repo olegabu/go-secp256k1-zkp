@@ -67,7 +67,7 @@ esac
 
 CFLAGS="-W $CFLAGS"
 
-warn_CFLAGS="-std=c89 -pedantic -Wall -Wextra -Wcast-align -Wnested-externs -Wshadow -Wstrict-prototypes -Wundef -Wno-unused-function -Wno-long-long -Wno-overlength-strings"
+warn_CFLAGS=" -pedantic -Wall -Wextra -Wcast-align -Wnested-externs -Wshadow -Wstrict-prototypes -Wundef -Wno-unused-function -Wno-long-long -Wno-overlength-strings"
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$warn_CFLAGS $CFLAGS"
 AC_MSG_CHECKING([if ${CC} supports ${warn_CFLAGS}])
@@ -130,6 +130,11 @@ AC_ARG_ENABLE(module_musig,
     AS_HELP_STRING([--enable-module-musig],[enable MuSig module (experimental)]),
     [enable_module_musig=$enableval],
     [enable_module_musig=no])
+
+AC_ARG_ENABLE(module_aggsig,
+    AS_HELP_STRING([--enable-module-aggsig],[enable AggSig module (experimental)]),
+    [enable_module_aggsig=$enableval],
+    [enable_module_aggsig=no])
 
 AC_ARG_ENABLE(module_recovery,
     AS_HELP_STRING([--enable-module-recovery],[enable ECDSA pubkey recovery module [default=no]]),
@@ -483,6 +488,10 @@ if test x"$enable_module_musig" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_MUSIG, 1, [Define this symbol to enable the MuSig module])
 fi
 
+if test x"$enable_module_aggsig" = x"yes"; then
+  AC_DEFINE(ENABLE_MODULE_AGGSIG, 1, [Define this symbol to enable the AggSig module])
+fi
+
 if test x"$enable_module_recovery" = x"yes"; then
   AC_DEFINE(ENABLE_MODULE_RECOVERY, 1, [Define this symbol to enable the ECDSA pubkey recovery module])
 fi
@@ -540,6 +549,7 @@ if test x"$enable_experimental" = x"yes"; then
   AC_MSG_NOTICE([Building key whitelisting module: $enable_module_whitelist])
   AC_MSG_NOTICE([Building surjection proof module: $enable_module_surjectionproof])
   AC_MSG_NOTICE([Building MuSig module: $enable_module_musig])
+  AC_MSG_NOTICE([Building AggSig module: $enable_module_aggsig])
   AC_MSG_NOTICE([Building extrakeys module: $enable_module_extrakeys])
   AC_MSG_NOTICE([Building schnorrsig module: $enable_module_schnorrsig])
   AC_MSG_NOTICE([******])
@@ -548,6 +558,9 @@ if test x"$enable_experimental" = x"yes"; then
   if test x"$enable_module_schnorrsig" != x"yes"; then
     if test x"$enable_module_musig" = x"yes"; then
       AC_MSG_ERROR([MuSig module requires the schnorrsig module. Use --enable-module-schnorrsig to allow.])
+    fi
+    if test x"$enable_module_aggsig" = x"yes"; then
+      AC_MSG_ERROR([AggSig module requires the schnorrsig module. Use --enable-module-schnorrsig to allow.])
     fi
   fi
 
@@ -568,6 +581,9 @@ if test x"$enable_experimental" = x"yes"; then
 else
   if test x"$enable_module_musig" = x"yes"; then
     AC_MSG_ERROR([MuSig module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_aggsig" = x"yes"; then
+    AC_MSG_ERROR([AggSig module is experimental. Use --enable-experimental to allow.])
   fi
   if test x"$enable_module_extrakeys" = x"yes"; then
     AC_MSG_ERROR([extrakeys module is experimental. Use --enable-experimental to allow.])
@@ -608,6 +624,7 @@ AM_CONDITIONAL([USE_BENCHMARK], [test x"$use_benchmark" = x"yes"])
 AM_CONDITIONAL([USE_ECMULT_STATIC_PRECOMPUTATION], [test x"$set_precomp" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_ECDH], [test x"$enable_module_ecdh" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_MUSIG], [test x"$enable_module_musig" = x"yes"])
+AM_CONDITIONAL([ENABLE_MODULE_AGGSIG], [test x"$enable_module_aggsig" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_GENERATOR], [test x"$enable_module_generator" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RANGEPROOF], [test x"$enable_module_rangeproof" = x"yes"])

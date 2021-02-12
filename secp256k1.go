@@ -5,7 +5,7 @@ package secp256k1
 #include <stdlib.h>
 #include <stdint.h>
 #define USE_BASIC_CONFIG 1
-#include "src/basic-config.h"
+#include "basic-config.h"
 #define ENABLE_MODULE_ECDH 1
 #define ENABLE_MODULE_RECOVERY 1
 #define ENABLE_MODULE_GENERATOR 1
@@ -22,10 +22,13 @@ package secp256k1
 #include "src/secp256k1.c"
 #include "src/testrand_impl.h"
 #include "src/modules/musig/main_impl.h"
-#include "include/secp256k1_rangeproof.h"
 static secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 static void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 static void freePubkeyArray(secp256k1_pubkey * *a) { free(a); }
+static const unsigned char** makeBytesArray(int size) { return !size ? NULL : calloc(sizeof(unsigned char*), size); }
+static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
+static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
+static void freeBytesArray(unsigned char** a) { if (a) free(a); }
 void random_scalar_order256(unsigned char *out) {
 	do {
         int overflow = 0;
@@ -55,15 +58,8 @@ int blind_value_generator_blind_sum(uint64_t v, const unsigned char* ra, unsigne
     secp256k1_scalar_clear(&tmp);
     return success;
 }
-// Takes two list of 33-byte commitments and sums the first set, subtracts the second and returns the resulting commitment.
-int secp256k1_pedersen_commit_sum(
-	const secp256k1_context* ctx,
-	secp256k1_pedersen_commitment *commit_out,
-	const secp256k1_pedersen_commitment * const* commits,
-	size_t pcnt,
-	const secp256k1_pedersen_commitment * const* ncommits,
-	size_t ncnt
-) {
+int secp256k1_pedersen_commit_sum(const secp256k1_context *ctx, secp256k1_pedersen_commitment *commit_out,
+	const secp256k1_pedersen_commitment *const *commits, size_t pcnt, const secp256k1_pedersen_commitment *const *ncommits, size_t ncnt) {
     secp256k1_gej accj;
     secp256k1_ge add;
     size_t i;
@@ -90,6 +86,19 @@ int secp256k1_pedersen_commit_sum(
         ret = 1;
     }
     return ret;
+}
+int secp256k1_pedersen_commitment_to_pubkey(secp256k1_pubkey *pubkey, const secp256k1_pedersen_commitment *commit) {
+    secp256k1_ge Q;
+    secp256k1_fe fe;
+    memset(pubkey, 0, sizeof(*pubkey));
+    secp256k1_fe_set_b32(&fe, &commit->data[1]);
+    secp256k1_ge_set_xquad(&Q, &fe);
+    if (commit->data[0] & 1) {
+        secp256k1_ge_neg(&Q, &Q);
+    }
+    secp256k1_pubkey_save(pubkey, &Q);
+    secp256k1_ge_clear(&Q);
+    return 1;
 }
 */
 import "C"
@@ -710,34 +719,6 @@ func GetThreadId64() uint64 {
 	return uint64(C.getSelfThreadId64())
 }*/
 
-/** Converts a pedersent commit to a pubkey
- *
- * Returns 1: Public key succesfully computed.
- *         0: Error.
- *
- * In:                 ctx: pointer to a context object
- *                   commit: pointer to a single commit
- * Out:              pubkey: resulting pubkey
- *
- */
-func CommitmentToPublicKey(
-	context *Context,
-	commit *Commitment,
-) (
-	pubkey *PublicKey,
-	err error,
-) {
-	pubkey = newPublicKey()
-	/*	if 1 != C.commitment_to_pubkey(
-			pubkey.pk,
-			commit.com) {
-
-			return nil, errors.New(ErrorCommitmentPubkey)
-		}
-	*/
-	return pubkey, nil
-}
-
 /** Opaque data structure that holds rewriteable "scratch space"
  *
  *  The purpose of this structure is to replace dynamic memory allocations,
@@ -843,32 +824,24 @@ func BlindValueGeneratorBlindSum(
 }
 
 /** Computes the sum of multiple positive and negative pedersen commitments
- * Returns 1: sum successfully computed.
- * In:     ctx:        pointer to a context object, initialized for Pedersen commitment (cannot be NULL)
- *         commits:    pointer to array of pointers to the commitments. (cannot be NULL if pcnt is non-zero)
- *         pcnt:       number of commitments pointed to by commits.
- *         ncommits:   pointer to array of pointers to the negative commitments. (cannot be NULL if ncnt is non-zero)
- *         ncnt:       number of commitments pointed to by ncommits.
- *  Out:   commit_out: pointer to the commitment (cannot be NULL)
- *
-SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit_sum(
-	const secp256k1_context* ctx,
-	secp256k1_pedersen_commitment *commit_out,
-	const secp256k1_pedersen_commitment * const* commits,
-	size_t pcnt,
-	const secp256k1_pedersen_commitment * const* ncommits,
-	size_t ncnt
-) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);
-*/
+* Returns 1: sum successfully computed.
+* In:     ctx:        pointer to a context object, initialized for Pedersen commitment (cannot be NULL)
+*         commits:    pointer to array of pointers to the commitments. (cannot be NULL if pcnt is non-zero)
+*         pcnt:       number of commitments pointed to by commits.
+*         ncommits:   pointer to array of pointers to the negative commitments. (cannot be NULL if ncnt is non-zero)
+*         ncnt:       number of commitments pointed to by ncommits.
+*  Out:   commit_out: pointer to the commitment (cannot be NULL)
+*
+ */
 func CommitSum(
 	context *Context,
 	poscommits []*Commitment,
 	negcommits []*Commitment,
 ) (
-	sum *Commitment,
-	err error,
+	*Commitment,
+	error,
 ) {
-	posarr := makeCommitmentsArray(len(poscommits))
+	/*posarr := makeCommitmentsArray(len(poscommits))
 	defer freeCommitmentsArray(posarr)
 	for pi, pc := range poscommits {
 		setCommitmentsArray(posarr, pc.com, pi)
@@ -878,17 +851,50 @@ func CommitSum(
 	defer freeCommitmentsArray(negarr)
 	for ni, nc := range negcommits {
 		setCommitmentsArray(negarr, nc.com, ni)
-	}
+	}*/
 
-	sum = newCommitment()
+	var tmp Commitment
 	if 1 != C.secp256k1_pedersen_commit_sum(
 		context.ctx,
-		sum.com,
-		posarr, C.size_t(len(poscommits)),
-		negarr, C.size_t(len(negcommits))) {
-
-		err = errors.New("error calculating sum of commitments")
+		&tmp,
+		&poscommits[0], C.size_t(len(poscommits)),
+		&negcommits[0], C.size_t(len(negcommits)),
+	) {
+		return nil, errors.New("error calculating sum of commitments")
 	}
+	/*SECP256K1_API SECP256K1_WARN_UNUSED_RESULT int secp256k1_pedersen_commit_sum(
+		const secp256k1_context* ctx,
+		secp256k1_pedersen_commitment *commit_out,
+		const secp256k1_pedersen_commitment * const* commits, size_t pcnt,
+		const secp256k1_pedersen_commitment * const* ncommits, size_t ncnt
+	) SECP256K1_ARG_NONNULL(1) SECP256K1_ARG_NONNULL(2) SECP256K1_ARG_NONNULL(3) SECP256K1_ARG_NONNULL(5);*/
+	return &tmp, nil
+}
 
-	return
+/** Converts a pedersent commit to a pubkey
+ * In:  commit: pointer to a single commit
+ * Out: pubkey: resulting pubkey
+ */
+func CommitmentToPublicKey(commit *Commitment) (*PublicKey, error) {
+	pubkey := newPublicKey()
+	if 1 != C.secp256k1_pedersen_commitment_to_pubkey(pubkey.pk, commit) {
+		return nil, errors.New(ErrorCommitmentPubkey)
+	}
+	return pubkey, nil
+}
+
+func makeBytesArray(size int) **C.uchar {
+	return C.makeBytesArray(C.int(size))
+}
+
+func setBytesArray(array **C.uchar, value *C.uchar, index int) {
+	C.setBytesArray(array, value, C.int(index))
+}
+
+func getBytesArray(array **C.uchar, index int) *C.uchar {
+	return C.getBytesArray(array, C.int(index))
+}
+
+func freeBytesArray(array **C.uchar) {
+	C.freeBytesArray(array)
 }
