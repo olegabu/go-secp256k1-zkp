@@ -257,7 +257,7 @@ func BulletproofRangeproofVerify(
 	scratch *ScratchSpace,
 	generators *BulletproofGenerators,
 	proof []byte,
-	minvalue []uint64,
+	minvalues []uint64,
 	commits []*Commitment,
 	nbits int,
 	valuegen *Generator,
@@ -265,16 +265,10 @@ func BulletproofRangeproofVerify(
 ) (
 	err error,
 ) {
-	//comcnt := len(commit)
-	//valcnt := len(minvalue)
-	//if comcnt != valcnt {
-	//	return 0, errors.New(ErrorBulletproofCount)
-	//}
-	//comms := C.makeCommitmentsArray(C.int(comcnt))
-	//for i := 0; i < comcnt; i++ {
-	//	C.setCommitmentsArray(comms, commit[i].com, C.int(i))
-	//}
-	//defer C.freeCommitmentsArray(comms)
+	comcnt := len(commits)
+	if minvalues != nil && len(minvalues) != comcnt {
+		return errors.New(ErrorBulletproofParams)
+	}
 
 	if scratch == nil {
 		scratch, err = ScratchSpaceCreate(context, 1024*4096)
@@ -292,11 +286,11 @@ func BulletproofRangeproofVerify(
 		defer BulletproofGeneratorsDestroy(context, generators)
 	}
 
-	/*comarr := makeCommitmentsArray(len(commits))
-	for i, c := range commits {
-		setCommitmentsArray(comarr, c.com, i)
+	comarr := makeCommitmentsArray(comcnt)
+	defer freeCommitmentsArray(comarr)
+	for i, com := range commits {
+		setCommitmentsArray(comarr, com, i)
 	}
-	defer freeCommitmentsArray(comarr)*/
 
 	if 1 != C.secp256k1_bulletproof_rangeproof_verify(
 		context.ctx,
@@ -304,9 +298,9 @@ func BulletproofRangeproofVerify(
 		generators.gens,
 		cBuf(proof),
 		C.size_t(len(proof)),
-		u64Arr(minvalue),
-		commits[0],
-		C.size_t(len(commits)),
+		u64Arr(minvalues),
+		*comarr,
+		C.size_t(comcnt),
 		C.size_t(nbits),
 		valuegen.gen,
 		cBuf(extracommit),
@@ -360,52 +354,44 @@ func BulletproofRangeproofVerifySingleCustomGen(
 	scratch *ScratchSpace,
 	generators *BulletproofGenerators,
 	proof []byte,
-	//minvalue uint64,
+	//minvalues uint64,
 	commit *Commitment,
 	extra []byte,
 	genH *Generator,
 ) (
 	err error,
 ) {
-	if scratch == nil {
-		scratch, err = ScratchSpaceCreate(context, 1024*4096)
-		if err != nil {
-			return
-		}
-		defer ScratchSpaceDestroy(context, scratch)
-	}
-
-	if generators == nil {
-		generators, err = BulletproofGeneratorsCreate(context, &GeneratorG, 256)
-		if err != nil {
-			return
-		}
-		defer BulletproofGeneratorsDestroy(context, generators)
-	}
-
-	//var minvaluec C.uint64_t = minvalue
-	//minvaluecp := C.ulong(minvalue)
-
-	commitc := commit
-
-	if 1 != C.secp256k1_bulletproof_rangeproof_verify(
-		context.ctx,
+	return BulletproofRangeproofVerify(
+		context,
 		scratch,
-		generators.gens,
-		cBuf(proof),
-		C.size_t(len(proof)),
+		generators,
+		proof,
 		nil,
-		commitc,
-		C.size_t(1),
-		C.size_t(64),
-		genH.gen,
-		cBuf(extra),
-		C.size_t(len(extra)),
-	) {
-		err = errors.New(ErrorBulletproofVerifyFails)
-	}
+		[]*Commitment{commit},
+		64,
+		genH,
+		extra,
+	)
+	/*
+		if 1 != C.secp256k1_bulletproof_rangeproof_verify(
+			context.ctx,
+			scratch,
+			generators.gens,
+			cBuf(proof),
+			C.size_t(len(proof)),
+			nil,
+			commitc,
+			C.size_t(1),
+			C.size_t(64),
+			genH.gen,
+			cBuf(extra),
+			C.size_t(len(extra)),
+		) {
+			err = errors.New(ErrorBulletproofVerifyFails)
+		}
 
-	return
+		return
+	*/
 }
 
 /** Batch-verifies multiple bulletproof (aggregate) rangeproofs of the same size using same generator
