@@ -22,7 +22,7 @@ static const unsigned char** makeBytesArray(int size) { return !size ? NULL : ca
 static void setBytesArray(unsigned char** a, unsigned char* v, int i) { if (a) a[i] = v; }
 static unsigned char* getBytesArray(unsigned char** a, int i) { return !a ? NULL : a[i]; }
 static void freeBytesArray(unsigned char** a) { if (a) free(a); }
-#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
+#cgo CFLAGS: -Isecp256k1-zkp -Isecp256k1-zkp/src
 */
 import "C"
 import (

@@ -163,14 +163,16 @@ typedef int (*secp256k1_nonce_function)(
 #define SECP256K1_FLAGS_BIT_CONTEXT_SIGN (1 << 9)
 #define SECP256K1_FLAGS_BIT_COMPRESSION (1 << 8)
 
-/** Flags to pass to secp256k1_context_create. */
-#define SECP256K1_CONTEXT_VERIFY (SECP256K1_FLAGS_TYPE_CONTEXT | SECP256K1_FLAGS_BIT_CONTEXT_VERIFY)
-#define SECP256K1_CONTEXT_SIGN (SECP256K1_FLAGS_TYPE_CONTEXT | SECP256K1_FLAGS_BIT_CONTEXT_SIGN)
-#define SECP256K1_CONTEXT_NONE (SECP256K1_FLAGS_TYPE_CONTEXT)
+/** Flags to pass to secp256k1_context_create, secp256k1_context_preallocated_size, and
+ *  secp256k1_context_preallocated_create. */
+#define SECP256K1_CONTEXT_VERIFY 0x101
+#define SECP256K1_CONTEXT_SIGN 0x201
+#define SECP256K1_CONTEXT_DECLASSIFY 0x401
+#define SECP256K1_CONTEXT_NONE 0x01
 
-/** Flag to pass to secp256k1_ec_pubkey_serialize and secp256k1_ec_privkey_export. */
-#define SECP256K1_EC_COMPRESSED (SECP256K1_FLAGS_TYPE_COMPRESSION | SECP256K1_FLAGS_BIT_COMPRESSION)
-#define SECP256K1_EC_UNCOMPRESSED (SECP256K1_FLAGS_TYPE_COMPRESSION)
+/** Flag to pass to secp256k1_ec_pubkey_serialize. */
+#define SECP256K1_EC_COMPRESSED 0x102
+#define SECP256K1_EC_UNCOMPRESSED 0x02
 
 /** Prefix byte used to tag various encoded curvepoints for specific purposes */
 #define SECP256K1_TAG_PUBKEY_EVEN 0x02

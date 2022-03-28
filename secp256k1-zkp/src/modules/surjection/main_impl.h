@@ -208,10 +208,9 @@ int secp256k1_surjectionproof_allocate_initialized(const secp256k1_context* ctx,
  * special value depending on the allocation path, and check it here.
  * But currently, it is not seen as big enough concern to warrant this extra code .*/
 void secp256k1_surjectionproof_destroy(secp256k1_surjectionproof* proof) {
-    if (proof != NULL) {
-        VERIFY_CHECK(proof->n_inputs <= SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
-        free(proof);
-    }
+    VERIFY_CHECK(proof != NULL);
+    VERIFY_CHECK(proof->n_inputs <= SECP256K1_SURJECTIONPROOF_MAX_N_INPUTS);
+    free(proof);
 }
 
 int secp256k1_surjectionproof_initialize(const secp256k1_context* ctx, secp256k1_surjectionproof* proof, size_t *input_index, const secp256k1_fixed_asset_tag* fixed_input_tags, const size_t n_input_tags, const size_t n_input_tags_to_use, const secp256k1_fixed_asset_tag* fixed_output_tag, const size_t n_max_iterations, const unsigned char *random_seed32) {

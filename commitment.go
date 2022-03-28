@@ -7,7 +7,7 @@
 package secp256k1
 
 /*
-#cgo CFLAGS: -I ${SRCDIR}/secp256k1-zkp -I ${SRCDIR}/secp256k1-zkp/src
+#cgo CFLAGS: -Isecp256k1-zkp -Isecp256k1-zkp/src
 #define USE_BASIC_CONFIG 1
 #include <stddef.h>
 #include <stdlib.h>
@@ -467,7 +467,7 @@ func BlindGeneratorBlindSum(
 	results = make([][32]byte, vbl)
 	for i := 0; i < vbl; i++ {
 		b := C.getBytesArray(fbls, C.int(i))
-		copy(results[i][:], C.GoBytes(unsafe.Pointer(b), 32))
+		C.memcpy(unsafe.Pointer(&results[i][0]), unsafe.Pointer(b), 32)
 	}
 
 	return results, nil

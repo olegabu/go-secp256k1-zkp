@@ -7,7 +7,7 @@
 package secp256k1
 
 /*
-    #cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
+    #cgo CFLAGS: -Isecp256k1-zkp -Isecp256k1-zkp/src
     #include <stdlib.h>
     #include <string.h>
     #include "include/secp256k1_surjectionproof.h"

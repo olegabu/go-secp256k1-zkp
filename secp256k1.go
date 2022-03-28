@@ -1,13 +1,13 @@
 package secp256k1
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/secp256k1-zkp -I${SRCDIR}/secp256k1-zkp/src
+#cgo CFLAGS: -Isecp256k1-zkp -Isecp256k1-zkp/src
+#cgo LDFLAGS: -Lsecp256k1-zkp/.libs
 #include <stdlib.h>
 #include <stdint.h>
 #include <syscall.h>
 #define USE_BASIC_CONFIG 1
 #include "src/basic-config.h"
-//#define SURJECTION_PARAMETERS_LOG 1
 #define ENABLE_MODULE_ECDH 1
 #define ENABLE_MODULE_RECOVERY 1
 #define ENABLE_MODULE_GENERATOR 1
@@ -18,10 +18,11 @@ package secp256k1
 #define ENABLE_MODULE_SCHNORRSIG 1
 #define ENABLE_MODULE_WHITELIST 1
 #define ENABLE_MODULE_SURJECTIONPROOF 1
-#include "src/secp256k1.c"
-#include "src/testrand_impl.h"
-#include "src/util.h"
-#include "src/hash_impl.h"
+#include "include/secp256k1.h"
+#include "secp256k1.c"
+#include "testrand_impl.h"
+#include "util.h"
+#include "hash_impl.h"
 inline secp256k1_pubkey** makePubkeyArray(int size) { return calloc(sizeof(secp256k1_pubkey*), size); }
 inline void setArrayPubkey(secp256k1_pubkey **a, secp256k1_pubkey *pubkey, int n) { a[n] = pubkey; }
 inline void freePubkeyArray(secp256k1_pubkey * *a) { free(a); }
@@ -41,7 +42,7 @@ void random_scalar_order256(unsigned char *out) {
 import "C"
 
 import (
-	"crypto/rand"
+	//"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -152,9 +153,9 @@ func newEcdsaRecoverableSignature() *EcdsaRecoverableSignature {
 var ctxmap map[uint]*Context
 
 func init() {
-	seed := make([]byte, 16)
-	rand.Read(seed)
-	C.secp256k1_rand_seed(cBuf(seed))
+	//seed := make([]byte, 16)
+	//rand.Read(seed)
+	//C.secp256k1_rand_seed(cBuf(seed))
 	ctxmap = make(map[uint]*Context)
 }
 
@@ -586,7 +587,10 @@ func u64Arr(a []uint64) *C.uint64_t {
 }
 
 func goBytes(cSlice []C.uchar, size C.int) []byte {
-	return C.GoBytes(unsafe.Pointer(&cSlice[0]), size)
+    //return C.GoBytes(unsafe.Pointer(&cSlice[0]), size)
+    dst := make([]byte, int(size))
+    C.memcpy(unsafe.Pointer(&dst[0]), unsafe.Pointer(&cSlice[0]), C.size_t(size))
+    return dst
 }
 
 /*func Random256() [32]byte {
